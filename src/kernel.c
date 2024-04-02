@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "header/cpu/gdt.h"
 #include "header/kernel-entrypoint.h"
+#include "framebuffer.c"
 
 void kernel_setup(void)
 {
@@ -11,5 +12,12 @@ void kernel_setup(void)
   while (true)
     b += 1;
   load_gdt(&_gdt_gdtr);
+  // Testing frame buffer
+  // framebuffer_clear();
+  // framebuffer_write(3, 8,  'H', 0, 0xF);
+  // framebuffer_write(3, 9,  'a', 0, 0xF);
+  // framebuffer_write(3, 10, 'i', 0, 0xF);
+  // framebuffer_write(3, 11, '!', 0, 0xF);
+  // framebuffer_set_cursor(3, 10);
   while (true);
 }
