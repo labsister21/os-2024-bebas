@@ -40,11 +40,12 @@ struct SegmentDescriptor
     uint8_t present : 1;
 
     // Next 32-bit (Bit 48 to 79)
-    uint8_t limit_low;
-    uint8_t flags : 4;
-    uint8_t size : 1;
-    uint8_t granularity : 1;
     uint8_t limit_high : 4;
+    uint8_t avl : 1;
+    uint8_t l : 1;
+    uint8_t db : 1;
+
+    uint8_t granularity : 1;
 
     // Last 32-bit (Bit 80 to 111)
     uint8_t base_high;
@@ -70,7 +71,7 @@ struct GlobalDescriptorTable
 struct GDTR
 {
     uint16_t limit;
-    uint64_t base;
+    struct GlobalDescriptorTable *base;
 } __attribute__((packed));
 
 #endif
