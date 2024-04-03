@@ -29,8 +29,9 @@ $(OUTPUT_FOLDER)/gdt.o: $(SOURCE_FOLDER)/gdt.c
 $(OUTPUT_FOLDER)/kernel.o: $(SOURCE_FOLDER)/kernel.c
 	$(CC) $(CFLAGS) $< -o $@
 
-kernel: $(OUTPUT_FOLDER)/gdt.o $(OUTPUT_FOLDER)/kernel.o
-	@$(LIN) $(LFLAGS) $(OUTPUT_FOLDER)/*.o -o $(OUTPUT_FOLDER)/kernel
+kernel:
+	@$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
+	@$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generate elf32...
 	@rm -f *.o
 
@@ -39,6 +40,15 @@ iso: kernel
 	@cp $(OUTPUT_FOLDER)/kernel     $(OUTPUT_FOLDER)/iso/boot/
 	@cp other/grub1                 $(OUTPUT_FOLDER)/iso/boot/grub/
 	@cp $(SOURCE_FOLDER)/menu.lst   $(OUTPUT_FOLDER)/iso/boot/grub/
-	@genisoimage -R -b boot/grub/grub1 -no-emul-boot -boot-load-size 4 -A os -input-charset utf8 -quiet -boot-info-table -o $(OUTPUT_FOLDER)/$(ISO_NAME).iso $(OUTPUT_FOLDER)/iso
-	@echo ISO image created: $(OUTPUT_FOLDER)/$(ISO_NAME).iso
-	@rm -r $(OUTPUT_FOLDER)/iso/
+	@genisoimage -R                   \
+	-b boot/grub/grub1         \
+	-no-emul-boot              \
+	-boot-load-size 4          \
+	-A os                      \
+	-input-charset utf8        \
+	-quiet                     \
+	-boot-info-table           \
+	-o bin/OS2024.iso              \
+	bin/iso
+	@rm -r $(OUTPUT_FOLDER)/iso
+
