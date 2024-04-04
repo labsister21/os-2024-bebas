@@ -263,29 +263,20 @@ const char keyboard_scancode_1_to_ascii_map[256] = {
     0,
 };
 
-struct KeyboardDriverState {
-    bool keyboard_input_on;
-    char keyboard_buffer;
-} KeyboardDriverState;
+// struct KeyboardDriverState {
+//     bool keyboard_input_on;
+//     char keyboard_buffer;
+// } KeyboardDriverState;
 
 void keyboard_isr(void)
 {
   uint8_t scancode = in(KEYBOARD_DATA_PORT);
 
-  if (KeyboardDriverState.keyboard_input_on)
+  if (keyboard_status.keyboard_input_on)
   {
-    char ascii_char = '\0'; 
+      char ascii_char = keyboard_scancode_1_to_ascii_map[scancode];
 
-    bool is_make_code = !(scancode & 0x80);
-
-    scancode &= 0x7F;
-
-    if (scancode < 256)
-    {
-      ascii_char = keyboard_scancode_1_to_ascii_map[scancode];
-
-      KeyboardDriverState.keyboard_buffer = ascii_char;
-    }
+      keyboard_status.keyboard_buffer = ascii_char;
   }
 
   pic_ack(IRQ_KEYBOARD);
@@ -294,19 +285,19 @@ void keyboard_isr(void)
 // Activate keyboard ISR / start listen keyboard & save to buffer
 void keyboard_state_activate(void)
 {
-  KeyboardDriverState.keyboard_input_on = true;
+  keyboard_status.keyboard_input_on = true;
 }
 
 // Deactivate keyboard ISR / stop listening keyboard interrupt
 void keyboard_state_deactivate(void)
 {
-  KeyboardDriverState.keyboard_input_on = false;
+  keyboard_status.keyboard_input_on = false;
 }
 
 // Get keyboard buffer value and flush the buffer - @param buf Pointer to char buffer
 void get_keyboard_buffer(char *buf)
 {
-  *buf = KeyboardDriverState.keyboard_buffer;
+  *buf = keyboard_status.keyboard_buffer;
 
-  KeyboardDriverState.keyboard_buffer = '\0';
+  keyboard_status.keyboard_buffer = '\0';
 }

@@ -3,6 +3,8 @@
     "files.associations": {
         "*.ejs": "html",
         "*.c": "c",
-        "kernel-entrypoint.h": "c"
+        "kernel-entrypoint.h": "c",
+        "portio.h": "c",
+        "framebuffer.h": "c"
     },
 }

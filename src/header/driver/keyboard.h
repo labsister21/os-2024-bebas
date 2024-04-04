@@ -29,13 +29,14 @@ extern const char keyboard_scancode_1_to_ascii_map[256];
  * @param keyboard_input_on  Indicate whether keyboard ISR is activated or not
  * @param keyboard_buffer    Storing keyboard input values in ASCII
  */
-struct KeyboardDriverState
+struct KeyboardDriverState 
 {
     bool read_extended_mode;
     bool keyboard_input_on;
     char keyboard_buffer;
 } __attribute((packed));
 
+struct KeyboardDriverState keyboard_status;
 /* -- Driver Interfaces -- */
 
 // Activate keyboard ISR / start listen keyboard & save to buffer

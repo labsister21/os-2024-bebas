@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "header/text/framebuffer.h"
+#include "header/driver/framebuffer.h"
 #include "header/stdlib/string.h"
 #include "header/cpu/portio.h"
 #include "portio.c"
@@ -19,7 +19,7 @@ void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg)
     // TODO : Implement
     volatile uint16_t* framebuffer = (volatile uint16_t*)FRAMEBUFFER_MEMORY_OFFSET;
     uint8_t color = (bg << 4) | (fg & 0x0F);
-    framebuffer[row * 80 + col] = ((uint16_t)color << 8) | c;
+    *(framebuffer+(row * 80 + col)) = (color << 8) | c;
 }
 
 void framebuffer_clear(void) {
