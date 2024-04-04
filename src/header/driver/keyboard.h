@@ -36,7 +36,7 @@ struct KeyboardDriverState
     char keyboard_buffer;
 } __attribute((packed));
 
-struct KeyboardDriverState keyboard_status;
+
 /* -- Driver Interfaces -- */
 
 // Activate keyboard ISR / start listen keyboard & save to buffer

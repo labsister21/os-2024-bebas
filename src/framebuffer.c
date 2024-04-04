@@ -5,6 +5,7 @@
 #include "header/stdlib/string.h"
 #include "header/cpu/portio.h"
 #include "portio.c"
+#include "header/stdlib/string.h"
 
 void framebuffer_set_cursor(uint8_t r, uint8_t c) {
     // TODO : Implement
@@ -17,16 +18,15 @@ void framebuffer_set_cursor(uint8_t r, uint8_t c) {
 
 void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg) {
     // TODO : Implement
-    volatile uint16_t* framebuffer = (volatile uint16_t*)FRAMEBUFFER_MEMORY_OFFSET;
-    uint8_t color = (bg << 4) | (fg & 0x0F);
-    *(framebuffer+(row * 80 + col)) = (color << 8) | c;
+    uint16_t color = (bg << 4) | (fg & 0x0F);
+    volatile uint16_t* where = (volatile uint16_t*)FRAMEBUFFER_MEMORY_OFFSET + (row * 80 + col);
+    *where = (color << 8) | c;
+    framebuffer_set_cursor(row, col);
 }
 
 void framebuffer_clear(void) {
     // TODO : Implement
-    uint16_t *fb = (uint16_t *) FRAMEBUFFER_MEMORY_OFFSET; // Mengambil alamat memory framebuffer
+    uint8_t *fb = (uint8_t *) FRAMEBUFFER_MEMORY_OFFSET; // Mengambil alamat memory framebuffer
     // Looping untuk menghapus semua karakter yang ada di framebuffer
-    for (uint16_t i = 0; i < 80 * 25; i++) {
-        fb[i] = (0x07 << 8) | 0x00;
-    }
+    memset(fb, 0, 80*25*2);
 }

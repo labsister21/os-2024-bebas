@@ -17,6 +17,8 @@ void initialize_idt(void) {
      * Segment: GDT_KERNEL_CODE_SEGMENT_SELECTOR
      * Privilege: 0
      */
+    _idt_idtr.base = &interrupt_descriptor_table;
+    _idt_idtr.limit = sizeof(interrupt_descriptor_table)-1;
     for (int i = 0; i < ISR_STUB_TABLE_LIMIT; i++) {
             set_interrupt_gate(i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 0);
     }
@@ -35,7 +37,8 @@ void set_interrupt_gate(
     // Use &-bitmask, bitshift, and casting for offset 
 
     // Target system 32-bit and flag this as valid interrupt gate
-    idt_int_gate->offset_low  = (uint32_t)handler_address & 0xFFFF;
+    uint32_t addr = (uint32_t)handler_address;
+    idt_int_gate->offset_low  = addr & 0xFFFF;
     idt_int_gate->segment     = gdt_seg_selector;
     idt_int_gate->_reserved   = 0;
     idt_int_gate->_r_bit_1    = INTERRUPT_GATE_R_BIT_1;
@@ -44,5 +47,5 @@ void set_interrupt_gate(
     idt_int_gate->_r_bit_3    = INTERRUPT_GATE_R_BIT_3;
     idt_int_gate->DPL         = privilege;
     idt_int_gate->valid_bit   = 1;
-    idt_int_gate->offset_high = ((uint32_t)handler_address >> 16) & 0xFFFF;
+    idt_int_gate->offset_high = (addr >> 16) & 0xFFFF;
 }

@@ -39,11 +39,13 @@ void kernel_setup(void)
   int col = 0;
   int row = 0;
   keyboard_state_activate();
-  framebuffer_set_cursor(row,col);
+  // framebuffer_write(3, 10, 'i', 0xF, 0);
+  // framebuffer_write(3, 11, '!', 0, 0xF);
   while(true){
       char c;
       get_keyboard_buffer(&c);
       framebuffer_write(row,col,c,0xF,0);
+      col++;
       // framebuffer_set_cursor(row,col);
   }
 }

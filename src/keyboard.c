@@ -3,6 +3,8 @@
 #include "header/cpu/portio.h"
 #include "header/stdlib/string.h"
 
+static struct KeyboardDriverState keyboard_status;
+
 const char keyboard_scancode_1_to_ascii_map[256] = {
     0,
     0x1B,

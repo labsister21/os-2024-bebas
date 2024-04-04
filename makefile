@@ -44,14 +44,18 @@ $(OUTPUT_FOLDER)/intsetup.o: $(SOURCE_FOLDER)/intsetup.s
 $(OUTPUT_FOLDER)/keyboard.o: $(SOURCE_FOLDER)/keyboard.c
 	$(CC) $(CFLAGS) $< -o $@
 
+$(OUTPUT_FOLDER)/string.o: $(SOURCE_FOLDER)/string.c
+	$(CC) $(CFLAGS) $< -o $@
+
 keyboard: $(OUTPUT_FOLDER)/keyboard.o
 gdt: $(OUTPUT_FOLDER)/gdt.o
 idt: $(OUTPUT_FOLDER)/idt.o
 framebuffer: $(OUTPUT_FOLDER)/framebuffer.o
 interrupt: $(OUTPUT_FOLDER)/interrupt.o
 intsetup: $(OUTPUT_FOLDER)/intsetup.o
+string: $(OUTPUT_FOLDER)/string.o
 
-kernel: gdt idt framebuffer interrupt intsetup keyboard
+kernel: gdt idt string framebuffer interrupt intsetup keyboard
 	$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
