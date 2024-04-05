@@ -3,9 +3,8 @@
 #include "header/driver/keyboard.h"
 
 void activate_keyboard_interrupt(void) {
-    uint8_t mask = in(PIC1_DATA);
-    mask &= ~(1 << IRQ_KEYBOARD);
-    out(PIC1_DATA, mask);
+    out(PIC1_DATA, PIC_DISABLE_ALL_MASK ^ (1 << IRQ_KEYBOARD));
+    out(PIC2_DATA, PIC_DISABLE_ALL_MASK);
 }
 
 void io_wait(void) {

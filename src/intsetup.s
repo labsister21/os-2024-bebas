@@ -1,69 +1,49 @@
 extern main_interrupt_handler
+global isr_stub_table
 
 ; Generic handler section for interrupt
 call_generic_handler:
-    ; Expected stack state at this label
-    ; [esp + 20] ss  (Only for inter-privilege)
-    ; [esp + 16] esp (Only for inter-privilege)
-    ; [esp + 16] eflags
-    ; [esp + 12] cs
-    ; [esp + 8 ] eip
-    ; [esp + 4 ] error code
-    ; [esp + 0 ] int_number
+    ; Before interrupt_handler_n is called (caller of this generic handler section), 
+    ; stack will have these value that pushed automatically by CPU
+    ; [esp + 12] eflags
+    ; [esp + 8 ] cs
+    ; [esp + 4 ] eip
+    ; [esp + 0 ] error code
 
-    ; Segment registers, CPURegister.segment
-    push ds
-    push es
-    push fs
-    push gs
+    ; CPURegister
+    push    esp
+    push    ebp
+    push    edx
+    push    ecx
+    push    ebx
+    push    eax
 
-    ; Push general purpose & index register with this order:
-    ; eax, ecx, edx, ebx, ebp, esp, esi, edi
-    ; CPURegister.general & CPURegister.index
-    pushad
 
-    ; Set segment registers to kernel_code before handling interrupt
-    push eax
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    pop eax
+    ; call the C function
+    call    main_interrupt_handler
 
-    ; Call the C function
-    call main_interrupt_handler
+    ; restore the registers
+    pop     eax
+    pop     ebx
+    pop     ecx
+    pop     edx
+    pop     ebp
+    pop     esp
 
-    ; Restore general-purpose & index register
-    popad
+    ; restore the esp (interrupt number & error code)
+    add     esp, 8
 
-    ; Restore segment registers
-    pop gs
-    pop fs
-    pop es
-    pop ds
-
-    ; Restore the esp (interrupt number & error code)
-    add esp, 8
-
-    ; Return to the code that got interrupted
+    ; return to the code that got interrupted
     ; at this point, stack should be structured like this
     ; [esp], [esp+4], [esp+8]
     ;   eip,   cs,    eflags
-    ; Improper value will cause invalid return address & register
+    ; improper value will cause invalid return address & register
     sti
     iret
 
 
 
 ; Macro for creating interrupt handler that only push interrupt number
-; Stack will have these value that pushed automatically by CPU
-; [esp + 20] ss  (Only for inter-privilege)
-; [esp + 16] esp (Only for inter-privilege)
-; [esp + 12] eflags
-; [esp + 8 ] cs
-; [esp + 4 ] eip
-; [esp + 0 ] error code
 %macro no_error_code_interrupt_handler 1
 interrupt_handler_%1:
     push    dword 0                 ; push 0 as error code
@@ -137,3 +117,11 @@ no_error_code_interrupt_handler i
 %endrep
 
 
+
+; ISR stub table, useful for reducing code repetition
+isr_stub_table:
+    %assign i 0 
+    %rep    64 
+    dd interrupt_handler_%+i
+    %assign i i+1 
+    %endrep
