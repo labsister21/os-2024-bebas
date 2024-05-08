@@ -16,8 +16,8 @@ CFLAGS        = $(DEBUG_CFLAG) $(WARNING_CFLAG) $(STRIP_CFLAG) -m32 -c -I$(SOURC
 AFLAGS        = -f elf32 -g -F dwarf
 LFLAGS        = -T $(SOURCE_FOLDER)/linker.ld -melf_i386
 
-run: all
-	@qemu-system-i386 -s -S -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
+run: all $(OUTPUT_FOLDER)/$(DISK_NAME).bin
+	@qemu-system-i386 -s -S -drive file=$(OUTPUT_FOLDER)/$(DISK_NAME).bin,format=raw,if=ide,index=0,media=disk -cdrom $(OUTPUT_FOLDER)/$(ISO_NAME).iso
 all: build
 build: iso
 clean:
@@ -47,6 +47,9 @@ $(OUTPUT_FOLDER)/keyboard.o: $(SOURCE_FOLDER)/keyboard.c
 $(OUTPUT_FOLDER)/string.o: $(SOURCE_FOLDER)/string.c
 	$(CC) $(CFLAGS) $< -o $@
 
+$(OUTPUT_FOLDER)/disk.o: $(SOURCE_FOLDER)/disk.c
+	$(CC) $(CFLAGS) $< -o $@
+
 keyboard: $(OUTPUT_FOLDER)/keyboard.o
 gdt: $(OUTPUT_FOLDER)/gdt.o
 idt: $(OUTPUT_FOLDER)/idt.o
@@ -54,15 +57,25 @@ framebuffer: $(OUTPUT_FOLDER)/framebuffer.o
 interrupt: $(OUTPUT_FOLDER)/interrupt.o
 intsetup: $(OUTPUT_FOLDER)/intsetup.o
 string: $(OUTPUT_FOLDER)/string.o
+disk: $(OUTPUT_FOLDER)/disk.o
 
-kernel: gdt idt string framebuffer interrupt intsetup keyboard
+DISK_NAME = storage
+DISK_SIZE = 4M
+
+disk:
+	@qemu-img create -f raw $(OUTPUT_FOLDER)/$(DISK_NAME).bin 4M
+
+$(OUTPUT_FOLDER)/$(DISK_NAME).bin:
+	@qemu-img create -f raw $@ $(DISK_SIZE)
+
+kernel: gdt idt string framebuffer interrupt intsetup keyboard disk
 	$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
 	@echo Linking object files and generate elf32...
 	@rm -f *.o
 
-iso: kernel
+iso: kernel $(OUTPUT_FOLDER)/$(DISK_NAME).bin
 	mkdir -p $(OUTPUT_FOLDER)/iso/boot/grub
 	cp $(OUTPUT_FOLDER)/kernel     $(OUTPUT_FOLDER)/iso/boot/
 	cp other/grub1                 $(OUTPUT_FOLDER)/iso/boot/grub/
@@ -77,4 +90,3 @@ iso: kernel
 	-boot-info-table           \
 	-o bin/OS2024.iso              \
 	bin/iso
-	rm -r $(OUTPUT_FOLDER)/iso

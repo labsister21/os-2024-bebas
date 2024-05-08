@@ -1,4 +1,5 @@
 extern main_interrupt_handler
+global isr_stub_table
 
 ; Generic handler section for interrupt
 call_generic_handler:
@@ -137,3 +138,11 @@ no_error_code_interrupt_handler i
 %endrep
 
 
+
+; ISR stub table, useful for reducing code repetition
+isr_stub_table:
+    %assign i 0 
+    %rep    64 
+    dd interrupt_handler_%+i
+    %assign i i+1 
+    %endrep

@@ -12,10 +12,6 @@
 #define INTERRUPT_GATE_R_BIT_2 0b110
 #define INTERRUPT_GATE_R_BIT_3 0b0
 
-// GDT Constant
-#define GDT_KERNEL_CODE_SEGMENT_SELECTOR 0x8
-#define GDT_KERNEL_DATA_SEGMENT_SELECTOR 0x10
-
 // Interrupt Handler / ISR stub for reducing code duplication, this array can be iterated in initialize_idt()
 extern void *isr_stub_table[ISR_STUB_TABLE_LIMIT];
 
@@ -38,15 +34,14 @@ struct IDTGate {
     // First 32-bit (Bit 0 to 31)
     uint16_t offset_low;
     uint16_t segment;
-    uint8_t _reserved:  5;
-    uint8_t _r_bit_1:   3;
-    uint8_t _r_bit_2:   3;
-    uint8_t gate_32:    1;
-    uint8_t _r_bit_3:   1;
-    uint8_t DPL:        2;
-    uint8_t valid_bit:  1;
+    uint8_t _reserved   : 5;
+    uint8_t _r_bit_1    : 3;
+    uint8_t _r_bit_2    : 3;
+    uint8_t gate_32     : 1;
+    uint8_t _r_bit_3    : 1;
+    uint8_t dpl         : 2;
+    uint8_t valid_bit   : 1;
     uint16_t offset_high;
-
 } __attribute__((packed));
 
 /**
@@ -55,8 +50,7 @@ struct IDTGate {
  *
  * ...
  */
-// ...
-struct interrupt_descriptor_table{
+struct IDT {
     struct IDTGate table[IDT_MAX_ENTRY_COUNT];
 } __attribute__((packed));
 
@@ -66,11 +60,9 @@ struct interrupt_descriptor_table{
  *
  * ...
  */
-// TODO : Implement
-// ...
-struct IDTR{
-    uint16_t limit;
-    struct interrupt_descriptor_table *base;
+struct IDTR {
+    uint16_t size;
+    struct IDT *location;
 } __attribute__((packed));
 
 
