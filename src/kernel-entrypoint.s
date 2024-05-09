@@ -10,6 +10,7 @@ CHECKSUM            equ -MAGIC_NUMBER ; calculate the checksum
 
 section .bss
 align 4 ; align at 4 bytes
+
 kernel_stack:                        ; label points to beginning of memory
     resb KERNEL_STACK_SIZE           ; reserve stack for the kernel
 

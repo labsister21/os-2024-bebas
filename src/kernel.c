@@ -7,22 +7,21 @@
 #include "header/driver/keyboard.h"
 #include "header/cpu/interrupt.h"
 #include "header/filesystem/disk.h"
+#include "header/filesystem/fat32.h"
+
 
 void kernel_setup(void) {
-    load_gdt(&_gdt_gdtr);
-    pic_remap();
-    activate_keyboard_interrupt();
-    initialize_idt();
-    framebuffer_clear();
-    framebuffer_set_cursor(0, 0);
+    uint32_t parent_cluster_number = 0; 
 
-    struct BlockBuffer b;
-    for (int i = 0; i < 512; i++) b.buf[i] = i % 16;
-    write_blocks(&b, 17, 1);
-    while (true);
+    uint8_t buf[1024];
+
+    struct FAT32DriverRequest req = {
+        .buf = buf,
+        .name = "example",
+        .ext = "txt",
+        .parent_cluster_number = parent_cluster_number,
+        .buffer_size = 1024,
+    };
+
+    delete(req);
 }
-
-
-
-
-

@@ -7,6 +7,12 @@
         "portio.h": "c",
         "framebuffer.h": "c",
         "idt.h": "c",
-        "gdt.h": "c"
+        "gdt.h": "c",
+        "keyboard.h": "c",
+        "fat32.h": "c",
+        "stdlib.h": "c",
+        "interrupt.h": "c",
+        "disk.h": "c",
+        "stdbool.h": "c"
     },
 }
