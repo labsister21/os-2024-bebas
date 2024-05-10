@@ -51,7 +51,10 @@ void flush_single_tlb(void *virtual_addr) {
 // TODO: Implement
 bool paging_allocate_check(uint32_t amount) {
     // TODO: Check whether requested amount is available
-    return true;
+    if(page_manager_state.free_page_frame_count>=amount){
+        return true;
+    }
+    return false;
 }
 
 
@@ -66,7 +69,22 @@ bool paging_allocate_user_page_frame(struct PageDirectory *page_dir, void *virtu
      *     > user bit       true
      *     > pagesize 4 mb  true
      */ 
-    return true;
+    // Iterasi melalui array page_frame_map untuk mencari frame yang kosong
+    for (size_t i = 0; i < PAGE_FRAME_MAX_COUNT; ++i) {
+        if (!page_manager_state.page_frame_map[i]) {
+            // Jika ditemukan frame yang kosong, maka lakukan pemetaan virtual-physical
+            page_manager_state.page_frame_map[i] = true; // tandai frame sebagai digunakan
+            struct PageDirectoryEntryFlag flag;
+            flag.present_bit = 1;
+            flag.write_bit = 1;
+            flag.user = 1;
+            flag.use_pagesize_4_mb = 1;
+            update_page_directory_entry(page_dir, (void*)(i * PAGE_FRAME_SIZE), virtual_addr, flag);
+            page_manager_state.free_page_frame_count--; // Kurangi jumlah frame yang tersedia
+            return true; // Kembalikan true untuk menandakan alokasi berhasil
+        }
+    }
+    return false; // Jika tidak ditemukan frame kosong, kembalikan false
 }
 
 bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_addr) {
@@ -75,5 +93,23 @@ bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_a
      * - Use the page_dir.table values to check mapped physical frame
      * - Remove the entry by setting it into 0
      */
-    return true;
+     // Hitung indeks entri dalam tabel direktori halaman berdasarkan alamat virtual
+    uint32_t page_index = ((uint32_t) virtual_addr >> 22) & 0x3FF;
+
+    // Periksa apakah entri di tabel direktori halaman tersebut ada
+    if (page_dir->table[page_index].flag.present_bit) {
+        // Bebaskan page frame yang terkait dengan alamat virtual
+        uint32_t physical_addr = (page_dir->table[page_index].lower_address) << 12;
+        page_manager_state.page_frame_map[physical_addr / PAGE_FRAME_SIZE] = false;
+
+        // Hapus entri di tabel direktori halaman
+        page_dir->table[page_index].flag.present_bit = 0;
+
+        // Tambahkan jumlah frame yang tersedia kembali
+        page_manager_state.free_page_frame_count++;
+
+        return true; // Alokasi berhasil
+    }
+
+    return false; // Jika entri tidak ada, kembalikan false
 }
