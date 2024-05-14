@@ -53,6 +53,9 @@ $(OUTPUT_FOLDER)/disk.o: $(SOURCE_FOLDER)/disk.c
 $(OUTPUT_FOLDER)/fat32.o: $(SOURCE_FOLDER)/fat32.c
 	$(CC) $(CFLAGS) $< -o $@
 
+$(OUTPUT_FOLDER)/paging.o: $(SOURCE_FOLDER)/paging.c
+	$(CC) $(CFLAGS) $< -o $@
+
 keyboard: $(OUTPUT_FOLDER)/keyboard.o
 gdt: $(OUTPUT_FOLDER)/gdt.o
 idt: $(OUTPUT_FOLDER)/idt.o
@@ -62,6 +65,7 @@ intsetup: $(OUTPUT_FOLDER)/intsetup.o
 string: $(OUTPUT_FOLDER)/string.o
 disk: $(OUTPUT_FOLDER)/disk.o
 fat32: $(OUTPUT_FOLDER)/fat32.o
+paging: $(OUTPUT_FOLDER)/paging.o
 
 DISK_NAME = storage
 DISK_SIZE = 4M
@@ -72,7 +76,7 @@ disk:
 $(OUTPUT_FOLDER)/$(DISK_NAME).bin:
 	@qemu-img create -f raw $@ $(DISK_SIZE)
 
-kernel: gdt idt string framebuffer interrupt intsetup keyboard disk fat32
+kernel: gdt idt string framebuffer interrupt intsetup keyboard disk fat32 paging
 	$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
