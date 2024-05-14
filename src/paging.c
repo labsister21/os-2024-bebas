@@ -99,11 +99,17 @@ bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_a
     // Periksa apakah entri di tabel direktori halaman tersebut ada
     if (page_dir->table[page_index].flag.present_bit) {
         // Bebaskan page frame yang terkait dengan alamat virtual
-        uint32_t physical_addr = (page_dir->table[page_index].lower_address) << 12;
+        uint32_t physical_addr = (page_dir->table[page_index].lower_address) << 22;
         page_manager_state.page_frame_map[physical_addr / PAGE_FRAME_SIZE] = false;
 
         // Hapus entri di tabel direktori halaman
-        page_dir->table[page_index].flag.present_bit = 0;
+        struct PageDirectoryEntryFlag flag;
+        flag.present_bit = 0;
+        flag.write_bit = 0;
+        flag.user = 0;
+        flag.use_pagesize_4_mb = 0;
+
+        update_page_directory_entry(page_dir, 0, virtual_addr, flag);
 
         // Tambahkan jumlah frame yang tersedia kembali
         page_manager_state.free_page_frame_count++;
