@@ -98,3 +98,10 @@ iso: kernel $(OUTPUT_FOLDER)/$(DISK_NAME).bin
 	-boot-info-table           \
 	-o bin/OS2024.iso              \
 	bin/iso
+
+inserter:
+	@$(CC) -Wno-builtin-declaration-mismatch -g -I$(SOURCE_FOLDER) \
+		$(SOURCE_FOLDER)/string.c \
+		$(SOURCE_FOLDER)/fat32.c \
+		$(SOURCE_FOLDER)/external-inserter.c \
+		-o $(OUTPUT_FOLDER)/inserter
