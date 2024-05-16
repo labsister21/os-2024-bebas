@@ -38,6 +38,9 @@ $(OUTPUT_FOLDER)/interrupt.o: $(SOURCE_FOLDER)/interrupt.c
 $(OUTPUT_FOLDER)/idt.o: $(SOURCE_FOLDER)/idt.c
 	$(CC) $(CFLAGS) $< -o $@
 
+$(OUTPUT_FOLDER)/portio.o: $(SOURCE_FOLDER)/portio.c
+	$(CC) $(CFLAGS) $< -o $@
+
 $(OUTPUT_FOLDER)/intsetup.o: $(SOURCE_FOLDER)/intsetup.s
 	$(ASM) $(AFLAGS) $< -o $@
 
@@ -66,6 +69,7 @@ string: $(OUTPUT_FOLDER)/string.o
 disk: $(OUTPUT_FOLDER)/disk.o
 fat32: $(OUTPUT_FOLDER)/fat32.o
 paging: $(OUTPUT_FOLDER)/paging.o
+portio: $(OUTPUT_FOLDER)/portio.o
 
 DISK_NAME = storage
 DISK_SIZE = 4M
@@ -76,7 +80,7 @@ disk:
 $(OUTPUT_FOLDER)/$(DISK_NAME).bin:
 	@qemu-img create -f raw $@ $(DISK_SIZE)
 
-kernel: gdt idt string framebuffer interrupt intsetup keyboard disk fat32 paging
+kernel: gdt idt string portio framebuffer interrupt intsetup keyboard disk fat32 paging
 	$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
