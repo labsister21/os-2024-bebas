@@ -168,4 +168,8 @@ void pic_remap(void);
  */
 void main_interrupt_handler(struct InterruptFrame frame);
 
+void syscall(struct InterruptFrame frame);
+
+void puts(char *str, uint32_t len, uint32_t color);
+
 #endif

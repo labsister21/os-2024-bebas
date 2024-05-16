@@ -10,21 +10,12 @@ struct IDTR _idt_idtr = {
 
 // Reference: https://wiki.osdev.org/Interrupts_Tutorial
 void initialize_idt(void) {
-    /* 
-     * TODO: 
-     * Iterate all isr_stub_table,
-     * Set all IDT entry with set_interrupt_gate()
-     * with following values:
-     * Vector: i
-     * Handler Address: isr_stub_table[i]
-     * Segment: GDT_KERNEL_CODE_SEGMENT_SELECTOR
-     * Privilege: 0
-     */
-
-    
-    // Iterate through isr_stub_table
     for (int i = 0; i < ISR_STUB_TABLE_LIMIT; i++) {
-        set_interrupt_gate(i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 0);
+        if (i >= 0x30 && i <= 0x3F){
+            set_interrupt_gate(i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 3);
+        }else{
+            set_interrupt_gate(i, isr_stub_table[i], GDT_KERNEL_CODE_SEGMENT_SELECTOR, 0);
+        }
     }
     __asm__ volatile("lidt %0" : : "m"(_idt_idtr));
     __asm__ volatile("sti");

@@ -13,6 +13,8 @@
         "stdlib.h": "c",
         "interrupt.h": "c",
         "disk.h": "c",
-        "stdbool.h": "c"
+        "stdbool.h": "c",
+        "limits": "c",
+        "stdint.h": "c"
     },
 }

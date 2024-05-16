@@ -4,7 +4,6 @@
 #include "header/driver/framebuffer.h"
 #include "header/stdlib/string.h"
 #include "header/cpu/portio.h"
-#include "portio.c"
 #include "header/stdlib/string.h"
 
 void framebuffer_set_cursor(uint8_t r, uint8_t c) {
