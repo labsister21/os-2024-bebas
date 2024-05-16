@@ -25,7 +25,6 @@ static struct PageManagerState page_manager_state = {
         [0]                            = true,
         [1 ... PAGE_FRAME_MAX_COUNT-1] = false
     },
-    // TODO: Initialize page manager state properly
     .free_page_frame_count = PAGE_FRAME_MAX_COUNT - 1
 };
 
@@ -48,9 +47,7 @@ void flush_single_tlb(void *virtual_addr) {
 
 
 /* --- Memory Management --- */
-// TODO: Implement
 bool paging_allocate_check(uint32_t amount) {
-    // TODO: Check whether requested amount is available
     if(page_manager_state.free_page_frame_count>=amount){
         return true;
     }
