@@ -50,7 +50,7 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .db = 1,          // 32-bit opcode
             .granularity = 1, // 4KiB granularity
             .base_high = 0},
-        {/* TODO: User   Code Descriptor */
+        {
             .segment_low = 0xFFFF, // Limit = 0xFFFFF
             .base_low = 0,
             .base_mid = 0,
@@ -65,7 +65,7 @@ struct GlobalDescriptorTable global_descriptor_table = {
             .granularity = 1, // 4KiB granularity
             .base_high = 0
         },
-        {/* TODO: User   Data Descriptor */
+        {
             .segment_low = 0xFFFF, // Limit = 0xFFFFF
             .base_low = 0,
             .base_mid = 0,

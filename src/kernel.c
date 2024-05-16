@@ -41,4 +41,3 @@ void kernel_setup(void) {
 
     while (true);
 }
-
