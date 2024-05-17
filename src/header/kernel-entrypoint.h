@@ -31,6 +31,5 @@ extern void set_tss_register(void);  // Implemented in kernel-entrypoint.s
  * @warning Invalid address / definition of GDT will cause bootloop after calling this procedure.
  */
 extern void load_gdt(struct GDTR *gdtr);
-void set_tss_register(void);
 
 #endif
