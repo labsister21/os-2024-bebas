@@ -131,6 +131,8 @@ no_error_code_interrupt_handler 31 ; 0x1F - Reserved
 ; 45 - 0x2D - IRQ13: Coprocessor
 ; 46 - 0x2E - IRQ14: Primary ATA Hard Disk
 ; 47 - 0x2F - IRQ15: Secondary ATA Hard Disk
+; 48 - 0x30 - IRQ16: Syscall
+
 %assign i 32 
 %rep    32
 no_error_code_interrupt_handler i

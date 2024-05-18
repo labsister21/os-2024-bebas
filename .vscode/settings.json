@@ -16,6 +16,7 @@
         "stdbool.h": "c",
         "limits": "c",
         "stdint.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "stdio.h": "c"
     },
 }

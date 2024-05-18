@@ -3,6 +3,7 @@
 #include "header/driver/keyboard.h"
 #include "header/cpu/gdt.h"
 #include "header/filesystem/fat32.h"
+#include "header/stdlib/string.h"
 #include "header/driver/framebuffer.h"
 
 void io_wait(void) {
@@ -39,13 +40,19 @@ void pic_remap(void) {
     out(PIC2_DATA, PIC_DISABLE_ALL_MASK);
 }
 
+
+// Main interrupt handler
 void main_interrupt_handler(struct InterruptFrame frame) {
     switch (frame.int_number) {
-        case (PIC1_OFFSET + IRQ_KEYBOARD):
+        case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
+            break;
+        case PIC1_OFFSET + IRQ_SYSCALL:
+            syscall(frame);
             break;
     }
 }
+
 
 void activate_keyboard_interrupt(void) {
     out(PIC1_DATA, in(PIC1_DATA) & ~(1 << IRQ_KEYBOARD));
@@ -70,8 +77,29 @@ void syscall(struct InterruptFrame frame) {
                 *(struct FAT32DriverRequest*) frame.cpu.general.ebx
             );
             break;
+        case 1:
+            *((int8_t*) frame.cpu.general.ecx) = read_directory(
+                *(struct FAT32DriverRequest*) frame.cpu.general.ebx
+            );
+            break;
+        case 2:
+            *((int8_t*) frame.cpu.general.ecx) = write(
+                *(struct FAT32DriverRequest*) frame.cpu.general.ebx
+            );
+            break;
+        case 3:
+            *((int8_t*) frame.cpu.general.ecx) = delete(
+                *(struct FAT32DriverRequest*) frame.cpu.general.ebx
+            );
+            break;
         case 4:
             get_keyboard_buffer((char*) frame.cpu.general.ebx);
+            break;
+        case 5:
+            putchar(
+                (char*) frame.cpu.general.ebx,
+                frame.cpu.general.ecx
+            );
             break;
         case 6:
             puts(
@@ -83,38 +111,14 @@ void syscall(struct InterruptFrame frame) {
         case 7: 
             keyboard_state_activate();
             break;
-    }
-}
-
-uint8_t row_now = 0;
-uint8_t length_of_terminal = 0;
-void puts(char *str, uint32_t len, uint32_t color) {
-    if (memcmp(str,"cls",3) == 0)
-    {
-        row_now = 0;
-        for (uint32_t i = 0; i < 25; i++)
-        {
-            for (uint32_t j = 0; j < 80; j++)
-            {
-                framebuffer_write(i, j, ' ', color, 0);
-            }
-        }
-    }
-    else
-    {
-        row_now++;
-        uint32_t col = 0;
-        for (uint32_t i = 0; i < len; i++)
-        {
-            if (str[i] == '\n'){
-                row_now ++;
-                col = 0;
-            }
-            else{
-                framebuffer_write(row_now, col, str[i], color, 0);
-                col++;
-            }
-        }
-        row_now ++;
+        case 8:
+            keyboard_state_deactivate();
+            break;
+        case 9: //EBX : pointer to keyboardState
+            break;
+        case 10: //cls
+            framebuffer_clear();
+            break;
+        
     }
 }

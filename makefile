@@ -80,7 +80,7 @@ disk:
 $(OUTPUT_FOLDER)/$(DISK_NAME).bin:
 	@qemu-img create -f raw $@ $(DISK_SIZE)
 
-kernel: gdt idt string portio framebuffer interrupt intsetup keyboard disk fat32 paging
+kernel: gdt idt string portio framebuffer interrupt intsetup keyboard fat32 paging
 	$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel
