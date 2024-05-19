@@ -38,6 +38,24 @@ void invert_memcpy(void *restrict dest, const void *restrict src, size_t n)
         dstbuf[i] = srcbuf[n - i - 1];
 }
 
+uint32_t get_parent_directory(uint32_t current_cluster) {
+    struct FAT32DirectoryTable buff;
+    uint8_t retcode;
+
+    // Get the directory table of the current directory
+    struct FAT32DriverRequest req = {
+        .buf = buff.table,
+        .name = ".\0\0\0\0\0\0\0",
+        .ext = "\0\0\0",
+        .parent_cluster_number = current_cluster,
+        .buffer_size = 0x0,
+    };
+    syscall(1, (uint32_t)&req, (uint32_t)&retcode, 0);
+
+    // Return the cluster number of the parent directory
+    return buff.table[1].cluster_low | buff.table[1].cluster_high << 16;
+}
+
 // void print_dir_tree(char* current_folder_name ,uint32_t cluster_number, char* text_pointer){
 //     char temp[SHELL_MAX_LENGTH/2];
 //     // char current_folder[9] = "\0\0\0\0\0\0\0\0";
@@ -79,62 +97,90 @@ void invert_memcpy(void *restrict dest, const void *restrict src, size_t n)
 //     invert_memcpy(text_pointer,temp,prog);
 // }
 
-void print_dir_tree(uint32_t cluster_number, char *text_pointer)
+void puts(char *text, uint32_t color)
 {
+    syscall(6, (uint32_t)text, strlen(text), color);
+}
+
+void print_dir_tree(uint32_t cluster_number, char *text_pointer) {
     char temp[SHELL_MAX_LENGTH / 2] = {0};
     uint32_t current_cluster = cluster_number;
-    uint16_t prog = 0;
+    int prog = 0;
     struct FAT32DirectoryTable buff;
 
-    do
-    {
+    do {
         uint8_t retcode;
-        // get parent of current folder
+        // Get current directory information
         struct FAT32DriverRequest req = {
             .buf = buff.table,
             .name = ".\0\0\0\0\0\0\0",
             .ext = "\0\0\0",
             .parent_cluster_number = current_cluster,
-            .buffer_size = 0x0,
+            .buffer_size = sizeof(buff.table),
         };
         syscall(1, (uint32_t)&req, (uint32_t)&retcode, 0);
 
-        // add name to temp
-        memcpy(temp + prog, buff.table[0].name, strlen(buff.table[0].name));
-        prog += strlen(buff.table[0].name);
+        if (retcode != 0) {
+            puts("Error: Unable to read directory.", 0xE);
+            return; // Error handling: return if syscall fails
+        }
 
-        current_cluster = buff.table[1].cluster_low | buff.table[1].cluster_high << 16;
+        // Ensure name is null-terminated
+        char name[9];
+        strncpy(name, buff.table[0].name, 8);
+        name[8] = '\0';
 
-        // ALT ROOT CHECK
-        if (!((buff.table[0].cluster_low == buff.table[1].cluster_low) && (buff.table[0].cluster_high == buff.table[1].cluster_high)))
-        {
+        // Add name to temp
+        int name_len = strlen(name);
+        memcpy(temp + prog, name, name_len);
+        prog += name_len;
+
+        // Add backslash separator if not root
+        if (!((buff.table[0].cluster_low == buff.table[1].cluster_low) && (buff.table[0].cluster_high == buff.table[1].cluster_high))) {
             temp[prog] = '\\';
             prog++;
         }
-        else
-        {
-            break;
-        }
+
+        // Get parent cluster number
+        current_cluster = buff.table[1].cluster_low | (buff.table[1].cluster_high << 16);
+
     } while (current_cluster != 0); // Stop when we reach the root
 
-    // Add a space at the end of the directory name
-    temp[prog] = ' ';
-    prog++;
+    // Reverse the directory path stored in temp
+    char *start = temp;
+    char *end = temp + prog - 1;
 
-    // Reverse the string
-    for (int i = 0; i < prog / 2; i++) {
-        char temp_char = temp[i];
-        temp[i] = temp[prog - i - 1];
-        temp[prog - i - 1] = temp_char;
+    // Reverse the entire string first
+    while (start < end) {
+        char temp_char = *start;
+        *start = *end;
+        *end = temp_char;
+        start++;
+        end--;
     }
 
-    // Copy the reversed string to the output
-    memcpy(text_pointer, temp, prog);
-}
+    // Reverse each directory name back to correct order
+    start = temp;
+    while (start < temp + prog) {
+        end = strchr(start, '\\');
+        if (!end) end = temp + prog;
 
-void puts(char *text, uint32_t color)
-{
-    syscall(6, (uint32_t)text, strlen(text), color);
+        // Reverse the directory name
+        char *dir_start = start;
+        char *dir_end = end - 1;
+        while (dir_start < dir_end) {
+            char temp_char = *dir_start;
+            *dir_start = *dir_end;
+            *dir_end = temp_char;
+            dir_start++;
+            dir_end--;
+        }
+        start = end + 1;
+    }
+
+    // Copy the reversed string to the output and add a null character at the end
+    memcpy(text_pointer, temp, prog);
+    text_pointer[prog] = '\0';
 }
 
 int8_t read_directory_interface(struct FAT32DirectoryTable *buf, char *folder_name, uint8_t len, uint16_t cluster)
@@ -148,6 +194,16 @@ int8_t read_directory_interface(struct FAT32DirectoryTable *buf, char *folder_na
     memcpy(req.name, folder_name, len);
     int8_t retcode;
     syscall(1, (uint32_t)&req, (uint32_t)&retcode, 0);
+
+    if (retcode == 0)
+    {
+        // Check if the directory exists
+        if (buf->table[0].name[0] == (char)0xE5 || buf->table[0].name[0] == 0x00)
+        {
+            puts("Directory not found!", 0x4);
+            retcode = -1;  // Set retcode to a non-zero value to indicate failure
+        }
+    }
     return retcode;
 };
 
@@ -168,6 +224,12 @@ char *strcat(char *dest, const char *src)
 
 bool find_in_directory(uint16_t parent_cluster, char *name, char *found_path)
 {
+    // Special case for root directory
+    if (strcmp(name, "/") == 0 || strcmp(name, "") == 0) {
+        strcpy(found_path, "/");
+        return true;
+    }
+
     struct FAT32DirectoryTable dirbuffer;
     struct FAT32DriverRequest request = {
         .buf = dirbuffer.table,
@@ -187,10 +249,34 @@ bool find_in_directory(uint16_t parent_cluster, char *name, char *found_path)
 
     for (int i = 2; i < 64; i++)
     {
-        if (memcmp(dirbuffer.table[i].name, name, strlen(name)) == 0)
+        // Trim trailing spaces from name in directory
+        char trimmed_name[12];
+        memcpy(trimmed_name, dirbuffer.table[i].name, 11);
+        trimmed_name[11] = '\0'; // ensure null-terminated
+        char *end = trimmed_name + strlen(trimmed_name) - 1;
+        while (end > trimmed_name && *end == ' ') {
+            *end-- = '\0';
+        }
+
+        if (strcmp(trimmed_name, name) == 0)
         {
             // Match found, construct the path
             print_dir_tree(dirbuffer.table[i].cluster_low | (dirbuffer.table[i].cluster_high << 16), found_path);
+            // If it's a directory, print its contents
+            if (dirbuffer.table[i].attribute & 0x10)
+            {
+                char output[SHELL_MAX_LENGTH];
+                puts(output, 0xF); // Replace COLOR_WHITE with the desired color
+
+                for (int j = 2; j < 64; j++)
+                {
+                    if (dirbuffer.table[j].name[0] != '\0')
+                    {
+                        puts(output, 0xF); // Replace COLOR_WHITE with the desired color
+                    }
+                }
+            }
+
             return true;
         }
 
@@ -223,92 +309,65 @@ bool find_in_directory(uint16_t parent_cluster, char *name, char *found_path)
 
 void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 {
-    if (memcmp(buffer, "cd", 2) == 0) ////CD
+    char *command = strtok(buffer, " ");
+    char *argument = strtok(NULL, " ");
+    if (strcmp(command, "cd") == 0)
     {
-        // uint8_t len = strlen(buffer + 3);
-        char pos = *parent_cluster + '0';
-        syscall(5, (uint32_t)&pos, 0xF, 0);
-        puts("\n", 0xF);
-        puts(buffer + 3, 0xF);
-        puts("\n", 0xF);
+        if (argument == NULL || strlen(argument) == strspn(argument, " \t\n\r"))
+        {
+            return;
+        }
+
         uint32_t retcode = 0;
         uint8_t progress = 3;
         uint16_t current_cluster = *parent_cluster;
         struct FAT32DirectoryTable dirbuffer;
-        char splitter = '/';
+        char splitter = '\\';
+        bool directory_found = false;
+
         while (retcode == 0 && strlen(buffer + progress) > 0)
-        { // while no errors and remaining text length is not 0
+        {
             uint8_t current_len = 0;
-            // char fname[9] = "\0\0\0\0\0\0\0\0";
-            while (buffer[progress + current_len] != splitter && current_len < 8 && strlen(buffer + progress + current_len) > 0)
+            while (buffer[progress+current_len] != splitter && current_len < 8 && strlen(buffer+progress+current_len) > 0)
             {
                 current_len++;
             }
-            if (current_len == 8 && buffer[progress + current_len] != splitter)
+
+            if (current_len == 8 && buffer[progress+current_len] != splitter)
             {
-                // Too long!
                 puts("File name too long!", 0x4);
                 break;
             }
             else
             {
-                syscall(6, (uint32_t)buffer + progress, (uint32_t)current_len, 0xF);
-                puts("\n", 0xF);
-                retcode = read_directory_interface(&dirbuffer, buffer + progress, current_len, current_cluster);
-                current_cluster = dirbuffer.table[0].cluster_low | dirbuffer.table[0].cluster_high << 16;
+                retcode = read_directory_interface(&dirbuffer,buffer+progress,current_len,current_cluster);
+                if (retcode != 0)
+                {
+                    break;
+                }
+
+                // Check if the directory exists
+                if (dirbuffer.table[0].name[0] != '\0')
+                {
+                    current_cluster = dirbuffer.table[0].cluster_low | (dirbuffer.table[0].cluster_high << 16);
+                    directory_found = true;
+                }
             }
 
-            progress += current_len + 1; //+1 to offset for the splitter
+            progress += current_len + 1;
         }
 
-        if (retcode != 0)
+        if (!directory_found)
         {
-            puts("File not found!", 0x4);
+            puts("Directory not found!", 0x4);
         }
-        else
+        else if (retcode == 0)
         {
             *parent_cluster = current_cluster;
+            puts("Successfully changed directory.", 0xF);
         }
-        // if (memcmp("..", buffer + 3, 2) == 0)
-        // {
-        //     if (id == 0)
-        //     {
-        //         puts("Already in root", 0x4);
-        //         return;
-        //     }
-        //     id--;
-        //     puts("Change directory success", 0x2);
-        //     return;
-        // }
-        // else
-        // {
-        //     struct FAT32DriverRequest request = {
-        //         .buf = &clusbuff,
-        //         .parent_cluster_number = listCluster[id],
-        //         .buffer_size = 0
-        //     };
-        //     memcpy(request.name, listName[id], 8);
-        //     int32_t retcode = listCluster[id];
-        //     struct FAT32DirectoryTable table = {};
-        //     request.buf = &table;
-        //     syscall(1, (uint32_t) &request, (uint32_t) &retcode, 0);
-        //     for (int i = 0 ; i < 64 ; i++)
-        //     {
-        //         if (memcmp(table.table[i].name, (char *) buffer + 3, 8) == 0)
-        //         {
-        //             id++;
-        //             listCluster[id] = table.table[i].cluster_low | (table.table[i].cluster_high << 16);
-        //             // memcpy(listName[id],table.table[i].name,8);
-        //             listName[id] = table.table[i].name;
-        //             // memcpy(listName[id],cek2, 8);
-        //             puts("Change directory success", 0x2);
-        //             return;
-        //         }
-        //     }
-        //     puts("No such directory", 0x4);
-        // }
     }
-    else if (memcmp((char *)buffer, "ls", 2) == 0) // ls command
+    else if (strcmp(command, "ls") == 0) // ls command
     {
         struct FAT32DirectoryTable dtable;
         struct FAT32DriverRequest request = {
@@ -321,11 +380,25 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 
         syscall(1, (uint32_t)&request, (uint32_t)&retval, 0);
 
+        if (argument != NULL && strlen(argument) > 0)
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                if (dtable.table[i].attribute != 0x00000000 && strcmp(dtable.table[i].name, argument) == 0)
+                {
+                    syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)strlen(dtable.table[i].name), 0xF);
+                    return;
+                }
+            }
+            puts("Not found", 0x4);
+            return;
+        }
+
         for (int i = 0; i < 64; i++)
         {
             if (dtable.table[i].attribute != 0x00000000)
-            {   
-                        // Skip the "." and ".." entries
+            {
+                // Skip the "." and ".." entries
                 if (memcmp(dtable.table[i].name, ".", 1) == 0 || memcmp(dtable.table[i].name, "..", 2) == 0)
                 {
                     continue;
@@ -335,11 +408,11 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 
                 // Check if it's a folder (directory)
                 if ((dtable.table[i].attribute & 0x10) != 0)
-                { 
+                {
                     syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
                 }
                 else
-                { 
+                {
                     if (ext[0] == '\0')
                     {
                         syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
@@ -352,7 +425,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
                     syscall(6, (uint32_t)ext, (uint32_t)3, 0xF);
                 }
                 // Add a space after each name
-                syscall(6, (uint32_t)" ", (uint32_t)1, 0xF);
+                syscall(6, (uint32_t) " ", (uint32_t)1, 0xF);
             }
         }
     }
@@ -392,7 +465,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             puts("Unknown error", 0x4);
         }
     }
-    else if (memcmp((char *)buffer, "cat", 3) == 0) ////cat
+    else if (strcmp(command, "cat") == 0) ////cat
     {
         int prev_press = 0;
         bool double_guard = false;
@@ -501,17 +574,15 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
     //     else
     //         puts("Target folder not found", 0x4);
     // }
-    else if (memcmp((char *)buffer, "rm", 2) == 0) ////rm
+    else if (strcmp(command, "rm") == 0) ////rm
     {
-        char *filename = buffer + 3; // Skip the "rm " part
-        while (*filename == ' ')
+        if (argument == NULL || strlen(argument) == strspn(argument, " \t\n\r"))
         {
-            filename++;
+            return;
         }
-
         // struct FAT32DirectoryEntry entry;
         char found_path[SHELL_MAX_LENGTH] = "";
-        if (find_in_directory(*parent_cluster, filename, found_path))
+        if (find_in_directory(*parent_cluster, argument, found_path))
         {
             struct FAT32DriverRequest req = {
                 .buf = NULL,
@@ -519,7 +590,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
                 .parent_cluster_number = *parent_cluster,
                 .buffer_size = 0,
             };
-            memcpy(req.name, filename, strlen(filename));
+            memcpy(req.name, argument, strlen(argument));
             uint8_t retval;
             syscall(3, (uint32_t)&req, (uint32_t)&retval, 0);
             if (retval == 0)
@@ -645,14 +716,13 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
     // }
     else if (memcmp((char *)buffer, "find", 4) == 0) ////find
     {
-        char name[9];
-        memcpy(name, buffer + 5, 8);
-        name[8] = '\0'; // ensure null-terminated
+        char name[SHELL_MAX_LENGTH];
+        memcpy(name, buffer + 5, SHELL_MAX_LENGTH - 1);
+        name[SHELL_MAX_LENGTH - 1] = '\0'; // ensure null-terminated
 
         char found_path[SHELL_MAX_LENGTH] = "";
         if (find_in_directory(*parent_cluster, name, found_path))
         {
-            puts("Found: ", 0x2);
             puts(found_path, 0x2);
         }
         else
@@ -660,85 +730,44 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             puts("Not found", 0x4);
         }
     }
-    // else if (memcmp((char *) buffer, "cls", 3) == 0)
-    // {
-    //     puts("cls", 0xF);
-    // }
-    // else if (memcmp((char *) buffer, "touch", 5) == 0)
-    // {
-    //     struct FAT32DriverRequest request = {
-    //         .buffer                   = &clusbuff,
-    //         .parent_cluster_number = listCluster[id],
-    //         .buffer_size           = 0,
-    //     };
-    //     request.buffer_size = 5*CLUSTER_SIZE;
-
-    //     /* get the name and ext of the file */
-    //     int nameLen1 = 0;
-    //     char* itr = (char * ) buffer + 6;
-    //     for(int i = 0; i < strlen(itr) ; i++){
-    //         if(itr[i] == '.'){
-    //             request.ext[0] = itr[i+1];
-    //             request.ext[1] = itr[i+2];
-    //             request.ext[2] = itr[i+3];
-    //             break;
-    //         }else{
-    //             nameLen1++;
-    //         }
-    //     }
-
-    //     memcpy(request.name, (void * ) buffer + 6, nameLen1);
-    //     uint32_t retcode;
-    //     struct ClusterBuffer cbuf[5] = {};
-
-    //     /* Dapetin isi filenya */
-    //     char* isi = "";
-    //     isi = (char *)buffer + 6 + nameLen1 + 2 + 3;
-
-    //     for (uint32_t i = 0; i < 5; i++)
-    //         for (uint32_t j = 0; j < CLUSTER_SIZE; j++)
-    //             cbuf[i].buffer[j] = isi[j];
-
-    //     /* Write to the file */
-    //     request.buffer = cbuf;
-    //     syscall(2, (uint32_t) &request, (uint32_t) &retcode, 0);
-    //     if(retcode == 0){
-    //         puts("Write success", 0x2);
-    //     }else{
-    //         puts("Write unsuccessful", 0x4);
-    //     }
-
-    // }
     else
     {
         puts("Command not found", 0x4);
     }
 }
 
-void clearBuffer(char* buffer, int length) {
-    for (int i = 0; i < length; i++) {
+void clearBuffer(char *buffer, int length)
+{
+    for (int i = 0; i < length; i++)
+    {
         buffer[i] = '\0';
     }
 }
 
-void handleInput(char* inputBuffer, int* inputLength) {
+void handleInput(char *inputBuffer, int *inputLength)
+{
     char charBuffer;
-    while (true) {
+    while (true)
+    {
         syscall(SYSCALL_READ_CHAR, (uint32_t)&charBuffer, 0, 0);
-        if (charBuffer) {
-            switch (charBuffer) {
+        if (charBuffer)
+        {
+            switch (charBuffer)
+            {
             case '\n':
                 syscall(SYSCALL_WRITE_CHAR, (uint32_t)&charBuffer, COLOR_WHITE_ON_BLACK, 0);
                 return;
             case '\b':
-                if (*inputLength > 0) {
+                if (*inputLength > 0)
+                {
                     inputBuffer[*inputLength] = '\0';
                     (*inputLength)--;
                     syscall(SYSCALL_WRITE_CHAR, (uint32_t)&charBuffer, COLOR_WHITE_ON_BLACK, 0);
                 }
                 break;
             default:
-                if (*inputLength < SHELL_MAX_LENGTH - 1) {
+                if (*inputLength < SHELL_MAX_LENGTH - 1)
+                {
                     syscall(SYSCALL_WRITE_CHAR, (uint32_t)&charBuffer, COLOR_WHITE_ON_BLACK, 0);
                     inputBuffer[*inputLength] = charBuffer;
                     (*inputLength)++;
@@ -749,13 +778,15 @@ void handleInput(char* inputBuffer, int* inputLength) {
     }
 }
 
-int shell(void) {
+int shell(void)
+{
     char inputBuffer[SHELL_MAX_LENGTH];
     int inputLength = 0;
     char current_dir[SHELL_MAX_LENGTH / 2];
     uint16_t current_cluster_pos = 2;
 
-    while (true) {
+    while (true)
+    {
         clearBuffer(current_dir, SHELL_MAX_LENGTH / 2);
         // print_dir_tree(current_cluster_pos, current_dir);
         puts(current_dir, COLOR_WHITE_ON_BLACK);

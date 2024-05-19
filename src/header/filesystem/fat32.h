@@ -5,12 +5,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "disk.h"
-#include "../stdlib/string.h"
 
 /**
  * FAT32 - IF2230 edition - 2024
  */
-
 
 /* -- IF2230 File System constants -- */
 #define BOOT_SECTOR           0
@@ -33,7 +31,7 @@
 /* -- FAT32 DirectoryEntry constants -- */
 #define ATTR_SUBDIRECTORY     0b00010000
 #define UATTR_NOT_EMPTY       0b10101010
-#define UATTR_EMPTY           0b01010101
+
 
 
 // Boot sector signature for this file system "FAT32 - IF2230 edition"
@@ -43,6 +41,8 @@ extern const uint8_t fs_signature[BLOCK_SIZE];
 struct ClusterBuffer {
     uint8_t buf[CLUSTER_SIZE];
 } __attribute__((packed));
+
+
 
 
 
@@ -201,7 +201,8 @@ void write_clusters(const void *ptr, uint32_t cluster_number, uint8_t cluster_co
  */
 void read_clusters(void *ptr, uint32_t cluster_number, uint8_t cluster_count);
 
-uint8_t count_empty_fat_slots(uint32_t* buf, uint8_t required);
+
+
 
 
 /* -- CRUD Operation -- */
@@ -244,4 +245,4 @@ int8_t write(struct FAT32DriverRequest request);
  */
 int8_t delete(struct FAT32DriverRequest request);
 
-#endif
+#endif 
