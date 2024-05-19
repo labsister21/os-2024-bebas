@@ -306,7 +306,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
     {
         struct FAT32DirectoryTable dtable;
         struct FAT32DriverRequest request = {
-            .buf = dtable.table,
+            .buf = &dtable,
             .buffer_size = 0,
             .parent_cluster_number = *parent_cluster,
             .name = ".\0\0\0\0\0\0"};
@@ -749,7 +749,7 @@ int shell(void) {
 
     while (true) {
         clearBuffer(current_dir, SHELL_MAX_LENGTH / 2);
-        print_dir_tree(current_cluster_pos, current_dir);
+        // print_dir_tree(current_cluster_pos, current_dir);
         puts(current_dir, COLOR_WHITE_ON_BLACK);
         puts("BEBAS@OS-IF2230>", 0x05);
 

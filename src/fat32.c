@@ -148,6 +148,12 @@ void initialize_filesystem_fat32(void) {
 
 int8_t read_directory(struct FAT32DriverRequest request) {
     // Get parent directory cluster
+
+    if(request.parent_cluster_number == ROOT_CLUSTER_NUMBER){
+        read_clusters(request.buf, request.parent_cluster_number, 1);
+        return 0;
+    }
+
     struct FAT32DirectoryTable dir_table;
     memset(&dir_table, 0, CLUSTER_SIZE);
     read_clusters(&dir_table, request.parent_cluster_number, 1);
@@ -160,7 +166,7 @@ int8_t read_directory(struct FAT32DriverRequest request) {
         if (dir_entry.user_attribute != UATTR_NOT_EMPTY) continue;
         
         // Check if dir_entry has the same name and ext
-        if (!memcmp(&dir_entry.name, &request.name, 8) && !memcmp(&dir_entry.ext, &request.ext, 3)){
+        if (!memcmp(&dir_entry.name, &request.name, 8)){
             if (dir_entry.attribute == ATTR_SUBDIRECTORY) {
                 // Check if buffer is enough
                 if (request.buffer_size < sizeof(struct FAT32DirectoryEntry)) {
