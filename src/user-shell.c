@@ -81,18 +81,13 @@ void invert_memcpy(void *restrict dest, const void *restrict src, size_t n)
 
 void print_dir_tree(uint32_t cluster_number, char *text_pointer)
 {
-    char temp[SHELL_MAX_LENGTH / 2];
-    // char current_folder[9] = "\0\0\0\0\0\0\0\0";
+    char temp[SHELL_MAX_LENGTH / 2] = {0};
     uint32_t current_cluster = cluster_number;
     uint16_t prog = 0;
     struct FAT32DirectoryTable buff;
-    // asumsi selalu exist
-    //  memcpy(current_folder,current_folder_name,strlen(current_folder_name));
-    // move current_folder_name first
 
     do
     {
-        // prog++;
         uint8_t retcode;
         // get parent of current folder
         struct FAT32DriverRequest req = {
@@ -105,7 +100,7 @@ void print_dir_tree(uint32_t cluster_number, char *text_pointer)
         syscall(1, (uint32_t)&req, (uint32_t)&retcode, 0);
 
         // add name to temp
-        invert_memcpy(temp + sizeof(char) * (prog), buff.table[0].name, strlen(buff.table[0].name));
+        memcpy(temp + prog, buff.table[0].name, strlen(buff.table[0].name));
         prog += strlen(buff.table[0].name);
 
         current_cluster = buff.table[1].cluster_low | buff.table[1].cluster_high << 16;
@@ -113,17 +108,28 @@ void print_dir_tree(uint32_t cluster_number, char *text_pointer)
         // ALT ROOT CHECK
         if (!((buff.table[0].cluster_low == buff.table[1].cluster_low) && (buff.table[0].cluster_high == buff.table[1].cluster_high)))
         {
-            memset(temp + sizeof(char) * (prog), '\\', 1);
+            temp[prog] = '\\';
             prog++;
-            // break;
         }
         else
         {
             break;
         }
-    } while (true);
+    } while (current_cluster != 0); // Stop when we reach the root
 
-    invert_memcpy(text_pointer, temp, prog);
+    // Add a space at the end of the directory name
+    temp[prog] = ' ';
+    prog++;
+
+    // Reverse the string
+    for (int i = 0; i < prog / 2; i++) {
+        char temp_char = temp[i];
+        temp[i] = temp[prog - i - 1];
+        temp[prog - i - 1] = temp_char;
+    }
+
+    // Copy the reversed string to the output
+    memcpy(text_pointer, temp, prog);
 }
 
 void puts(char *text, uint32_t color)
@@ -314,37 +320,39 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
         uint8_t retval = 0;
 
         syscall(1, (uint32_t)&request, (uint32_t)&retval, 0);
-        // syscall(5,(uint32_t)'0'+retval,0xF,0);
 
         for (int i = 0; i < 64; i++)
         {
             if (dtable.table[i].attribute != 0x00000000)
-            {
+            {   
+                        // Skip the "." and ".." entries
+                if (memcmp(dtable.table[i].name, ".", 1) == 0 || memcmp(dtable.table[i].name, "..", 2) == 0)
+                {
+                    continue;
+                }
                 int len = strlen(dtable.table[i].name);
                 char *ext = dtable.table[i].ext;
 
                 // Check if it's a folder (directory)
                 if ((dtable.table[i].attribute & 0x10) != 0)
-                { // If the directory flag is set
+                { 
                     syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
                 }
                 else
-                { // It's a file
-                    // Check if the character to the right is '\0'
+                { 
                     if (ext[0] == '\0')
                     {
-                        // If the character to the right is '\0', add a dot
                         syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
                         syscall(6, (uint32_t) ".", (uint32_t)1, 0xF);
                     }
                     else
                     {
-                        // Otherwise, don't add a dot
                         syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
                     }
-                    // Print the extension
                     syscall(6, (uint32_t)ext, (uint32_t)3, 0xF);
                 }
+                // Add a space after each name
+                syscall(6, (uint32_t)" ", (uint32_t)1, 0xF);
             }
         }
     }
