@@ -624,16 +624,16 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
         syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
             
         if (retcode == 3) {
-            syscall(6, (uint32_t) "The file size is too big to read!\n", 35, 0x4);
+            puts("The file size is too big to read!", 0x4);
             return;
         } else if (retcode == 2) {
-            syscall(6, (uint32_t) "Can't find the file!\n", 22, 0x4);
+            puts("Can't find the file!", 0x4);
             return;
         } else if (retcode == 1) {
-            syscall(6, (uint32_t) "Not a file!\n", 13, 0x4);
+            puts("Not a file!", 0x4);
             return;
         } else if (retcode == -1) {
-            syscall(6, (uint32_t) "An error occured!\n", 19, 0x4);
+            puts("An error occured!", 0x4);
             return;
         }
 
@@ -641,36 +641,6 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             syscall(6, (uint32_t) &cl_b[j], CLUSTER_SIZE, 0xf);
         }
         syscall(5, (uint32_t) "\n", 0xf, 0);
-        // int prev_press = 0;
-        // bool double_guard = false;
-        // bool exit = false;
-
-        // syscall(7, 0, 0, 0);
-        // while (true)
-        // {
-
-        //     // release double guard
-        //     if (prev_press == 0 && double_guard)
-        //     {
-        //         double_guard = false;
-        //     }
-
-        //     // else if (kbd event here)
-        //     else
-        //     {
-        //         prev_press = 0;
-        //     }
-
-        //     if (exit)
-        //     {
-        //         break;
-        //     }
-
-        //     // continue typing if nothing happened
-        //     char input;
-        //     syscall(4, (uint32_t)&input, 0, 0);
-        // }
-        // syscall(8, 0, 0, 0);
     }
     else if (memcmp((char * ) buffer, "cp", 2) == 0){
         struct ClusterBuffer clusbuff = {0};
@@ -792,78 +762,113 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             return;
         }
 
+        struct ClusterBuffer clusbuff = {0};
+        struct FAT32DriverRequest request = {
+            .buf = &clusbuff,
+            .parent_cluster_number = *parent_cluster,
+            .buffer_size = 0,
+        };
+        request.buffer_size = 5*CLUSTER_SIZE;
+        int nameLen = 0;
+        char* itr = (char * ) buffer + 3;
+        for(size_t i = 0; i < strlen(itr) ; i++){
+            if(itr[i] == '.'){
+                request.ext[0] = itr[i+1];
+                request.ext[1] = itr[i+2];
+                request.ext[2] = itr[i+3];
+                break;
+            }else{
+                nameLen++;
+            }
+        }
 
-        //   syscall_user(5, (uint32_t) "mv: too many arguments\n", 24, 0xf);
-        // } else {
-        //   int counterCD = 2;
-        //   // Change to target directory
-        //   // read source directory relative path
-        //   uint32_t DIR_NUMBER_STACK_TEMP[256] = {2};
-        //   char DIR_NAME_STACK_TEMP[256][9] = {"ROOT\0\0\0\0\0"};
-        //   uint8_t DIR_STACK_LENGTH_TEMP = DIR_STACK_LENGTH;
-        //   for (int i = 0; i < DIR_STACK_LENGTH + 1; i++) {
-        //     DIR_NUMBER_STACK_TEMP[i] = DIR_NUMBER_STACK[i];
-        //     for (int j = 0; j < 9; j++) {
-        //       DIR_NAME_STACK_TEMP[i][j] = DIR_NAME_STACK[i][j];
-        //     }
-        //   }
-        //   if (cmd[3][0] != '\0') {
-        //     counterCD = 2;
-        //     while (cmd[counterCD + 1][0] != ' ') {
-        //       if (cmd[counterCD][0] == '.') {
-        //         if (cmd[counterCD][1] == '.') {
-        //           // cd ..
-        //           change_directory("..");
-        //         } else {
-        //           // cd .
-        //           change_directory(".");
-        //         }
-        //       } else {
-        //         // cd <folder>
-        //         change_directory(cmd[counterCD]);
-        //       }
-        //       counterCD++;
-        //     }
-        //   }
+        memcpy(request.name, (void *) (buffer + 3), nameLen);
+        int32_t retcode;
 
-        //   // MV
-        //   // parse file name
-        //   char full_name[12];
-        //   for (int i = 0; i < 12; i++) {
-        //     full_name[i] = cmd[counterCD][i];
-        //   }
-        //   syscall_user(5, (uint32_t) full_name, 12, WHITE);
+        struct FAT32DriverRequest request2 = {
+            .buf                   = &clusbuff,
+            .parent_cluster_number = *parent_cluster,
+            .buffer_size           = 0,
+        };
 
-        //   // Search source request
-        //   char target_filename_src[9];
-        //   char target_ext_src[4];
-        //   parse_file_cmd(full_name, target_filename_src, target_ext_src);
-          
-        //   uint32_t src_idx = 0x800; // if unchanged, file not found
-        //   struct FAT32DirectoryTable src_table;
-        //   struct FAT32DriverRequest src_request = {
-        //       .buf = &src_table,
-        //       .ext = "\0\0\0",
-        //       .buffer_size = 0,
-        //   };
+        char* itr2 = (char * ) buffer + 8 +nameLen;
 
-        //   for (int i = 0; i < 8; i++) {
-        //     src_request.name[i] = DIR_NAME_STACK[DIR_STACK_LENGTH - 1][i];
-        //   }
+        if(request.ext[0] == 0x0){
+            itr2 = (char * ) buffer + 4 +nameLen;
+        }
 
-        //   if (DIR_STACK_LENGTH <= 1) {
-        //     src_request.parent_cluster_number = ROOT_CLUSTER_NUMBER;
-        //   } else {
-        //     src_request.parent_cluster_number = DIR_NUMBER_STACK[DIR_STACK_LENGTH - 2];
-        //   }
+        syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
 
-        //   int8_t src_retcode;
-        //   syscall_user(1, (uint32_t)&src_request, (uint32_t)&src_retcode, 0);
+         /* Read the Destination Folder to paste */
 
-        //   if (src_retcode != 0) {
-        //     syscall_user(5, (uint32_t) "SHELL ERROR\n", 15, DARK_GREEN);
-        //     return;
-        //   }
+        if (retcode == 1){
+            puts("Not a file", 0x4);
+            return;
+        }
+        else if (retcode == 2){
+            puts("File Not found", 0x4);
+            return;
+        }
+        else{
+            puts("Unknown error", 0x4);
+            return;
+        }
+        
+        memcpy(request2.name, itr2, 8);
+
+        int32_t retcode2;
+        struct FAT32DirectoryTable table = {};
+        request2.buf = &table;
+        syscall(1, (uint32_t) &request2, (uint32_t) &retcode, 0);
+
+        for(int i = 0; i < 64; i++){
+            if(memcmp(table.table[i].name, request2.name, strlen((char *) request2.name)) == 0){
+                request.parent_cluster_number = (table.table[i].cluster_high << 16) | table.table[i].cluster_low;
+                syscall(2, (uint32_t) &request, (uint32_t) &retcode2, 0);
+                break;
+            }
+        }
+
+        if (retcode2 == 1)
+            puts("File/Folder already exist", 0x4);
+            return;
+        else if (retcode2 == 2)
+            puts("Invalid parent cluster", 0x4);
+            return;
+        else
+            puts("Target folder not found", 0x4);
+            return;
+        
+        struct FAT32DriverRequest request3 = {
+            .buf = &clusbuff,
+            .parent_cluster_number = *parent_cluster,
+            .buffer_size = 0,
+        };
+        request3.buffer_size = 5*CLUSTER_SIZE;
+        nameLen = 0;
+        itr = (char * ) buffer + 3;
+        for(size_t i = 0; i < strlen(itr) ; i++){
+            if(itr[i] == '.'){
+                request3.ext[0] = itr[i+1];
+                request3.ext[1] = itr[i+2];
+                request3.ext[2] = itr[i+3];
+                break;
+            }else{
+                nameLen++;
+            }
+        }
+
+        memcpy(request3.name, (void *) (buffer + 3), nameLen);
+        int32_t retcode3;
+        syscall(3, (uint32_t) &request3, (uint32_t) &retcode3, 0);
+        if (retcode3 == 0)
+            puts("Move Success", 0x2);
+        else if (retcode3 == 1)
+            puts("File/Folder Not Found", 0x4);
+        else if (retcode3 == 2)
+            puts("Folder is empty", 0x4);
+        else
+            puts("Unknown Error", 0x4);
 
     }
     else if (memcmp((char *)buffer, "find", 4) == 0) ////find
