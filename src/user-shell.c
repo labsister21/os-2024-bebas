@@ -384,7 +384,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
         {
             for (int i = 0; i < 64; i++)
             {
-                if (dtable.table[i].attribute != 0x00000000 && strcmp(dtable.table[i].name, argument) == 0)
+                if (dtable.table[i].user_attribute != 0x00000000 && strcmp(dtable.table[i].name, argument) == 0)
                 {
                     syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)strlen(dtable.table[i].name), 0xF);
                     return;
@@ -396,7 +396,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 
         for (int i = 0; i < 64; i++)
         {
-            if (dtable.table[i].attribute != 0x00000000)
+            if (dtable.table[i].user_attribute != 0x00000000)
             {
                 // Skip the "." and ".." entries
                 if (memcmp(dtable.table[i].name, ".", 1) == 0 || memcmp(dtable.table[i].name, "..", 2) == 0)
@@ -416,11 +416,11 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
                     if (ext[0] == '\0')
                     {
                         syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
-                        syscall(6, (uint32_t) ".", (uint32_t)1, 0xF);
                     }
                     else
                     {
                         syscall(6, (uint32_t)dtable.table[i].name, (uint32_t)len, 0xF);
+                        syscall(6, (uint32_t) ".", (uint32_t)1, 0xF);
                     }
                     syscall(6, (uint32_t)ext, (uint32_t)3, 0xF);
                 }
@@ -498,6 +498,61 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
         }
 
         syscall(8, 0, 0, 0);
+    }
+    else if (memcmp((char * ) buffer, "cp", 2) == 0){
+        struct ClusterBuffer clusbuff = {0};
+        struct FAT32DriverRequest request = {
+            .buf = &clusbuff,
+            .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+            .buffer_size = 0,
+        };
+        request.buffer_size = 5*CLUSTER_SIZE;
+        int nameLen = 0;
+        char* itr = (char * ) buffer + 3;
+        for(size_t i = 0; i < strlen(itr) ; i++){
+            if(itr[i] == '.'){
+                request.ext[0] = itr[i+1];
+                request.ext[1] = itr[i+2];
+                request.ext[2] = itr[i+3];
+                break;
+            }else{
+                nameLen++;
+            }
+        }
+
+        memcpy(request.name, (void *) (buffer + 3), nameLen);
+        int32_t retcode;
+
+        struct FAT32DriverRequest request2 = {
+            .buf                   = &clusbuff,
+            .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+            .buffer_size           = 0,
+        };
+
+        char* itr2 = (char * ) buffer + 8 +nameLen;
+        memcpy(request2.name, itr2, 8);
+        syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
+
+         /* Read the Destination Folder to paste */
+        if (retcode == 0)
+            puts("Read success", 0x2);
+        else if (retcode == 1){
+            puts("Not a file", 0x4);
+            return;
+        }
+        else if (retcode == 2){
+            puts("Not enough buffer", 0x4);
+            return;
+        }
+        else if (retcode == 3){
+            puts("File Not found", 0x4);
+            return;
+        }
+        else{
+            puts("Unknown error", 0x4);
+            return;
+        }
+
     }
     // else if (memcmp((char * ) buffer, "cp", 2) == 0) ////cp
     // {
@@ -778,12 +833,41 @@ void handleInput(char *inputBuffer, int *inputLength)
     }
 }
 
+void tulisFile(uint16_t *parent_clust){
+    struct ClusterBuffer clusbuff = {0};
+    struct FAT32DriverRequest request = {
+            .buf                   = &clusbuff,
+            .parent_cluster_number = *parent_clust,
+            .buffer_size           = 0,
+        };
+    request.buffer_size = 5*CLUSTER_SIZE;
+    request.ext[0] = 't';
+    request.ext[1] = 'x';
+    request.ext[2] = 't';
+    memcpy(request.name, "tes", 3);
+    uint32_t retcode;
+    struct ClusterBuffer cbuf[5] = {};
+    char* isi = "aaaa";
+    for (uint32_t i = 0; i < 5; i++)
+        for (uint32_t j = 0; j < CLUSTER_SIZE; j++)
+            cbuf[i].buf[j] = isi[j];
+    
+    request.buf = cbuf;
+    syscall(2, (uint32_t) &request, (uint32_t) &retcode, 0);
+    if(retcode == 0){
+        puts("Write success", 0x2);
+    }else{
+        puts("Write unsuccessful", 0x4);
+    }
+}
+
 int shell(void)
 {
     char inputBuffer[SHELL_MAX_LENGTH];
     int inputLength = 0;
     char current_dir[SHELL_MAX_LENGTH / 2];
     uint16_t current_cluster_pos = 2;
+    tulisFile(&current_cluster_pos);
 
     while (true)
     {
