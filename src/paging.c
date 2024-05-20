@@ -3,6 +3,14 @@
 #include <stddef.h>
 #include "header/memory/paging.h"
 
+__attribute__((aligned(0x1000))) static struct PageDirectory page_directory_list[PAGING_DIRECTORY_TABLE_MAX_COUNT] = {0};
+
+static struct {
+    bool page_directory_used[PAGING_DIRECTORY_TABLE_MAX_COUNT];
+} page_directory_manager = {
+    .page_directory_used = {false},
+};
+
 __attribute__((aligned(0x1000))) struct PageDirectory _paging_kernel_page_directory = {
     .table = {
         [0] = {
@@ -115,4 +123,59 @@ bool paging_free_user_page_frame(struct PageDirectory *page_dir, void *virtual_a
     }
 
     return false; // Jika entri tidak ada, kembalikan false
+}
+
+struct PageDirectory* paging_create_new_page_directory(void) {
+    for (size_t i = 0; i < PAGING_DIRECTORY_TABLE_MAX_COUNT; ++i) {
+        if (!page_directory_manager.page_directory_used[i]) {
+            // Mark the page directory as used
+            page_directory_manager.page_directory_used[i] = true;
+
+            // Initialize the page directory
+            struct PageDirectory *page_dir = &page_directory_list[i];
+            memset(page_dir, 0, sizeof(struct PageDirectory));
+
+            // Create a new page directory entry for the kernel higher half
+            struct PageDirectoryEntry entry;
+            entry.flag.present_bit = 1;
+            entry.flag.write_bit = 1;
+            entry.flag.use_pagesize_4_mb = 1;
+
+            // Set the kernel page directory entry
+            page_dir->table[0x300] = entry;
+
+            return page_dir;
+        }
+    }
+    return NULL; // No free page directory found
+}
+
+bool paging_free_page_directory(struct PageDirectory *page_dir) {
+    for (size_t i = 0; i < PAGING_DIRECTORY_TABLE_MAX_COUNT; ++i) {
+        if (&page_directory_list[i] == page_dir) {
+            // Mark the page directory as unused
+            page_directory_manager.page_directory_used[i] = false;
+
+            // Clear all page directory entries
+            memset(page_dir, 0, sizeof(struct PageDirectory));
+
+            return true;
+        }
+    }
+    return false; // Page directory not found
+}
+
+struct PageDirectory* paging_get_current_page_directory_addr(void) {
+    uint32_t current_page_directory_phys_addr;
+    __asm__ volatile("mov %%cr3, %0" : "=r"(current_page_directory_phys_addr): /* <Empty> */);
+    uint32_t virtual_addr_page_dir = current_page_directory_phys_addr + KERNEL_VIRTUAL_ADDRESS_BASE;
+    return (struct PageDirectory*) virtual_addr_page_dir;
+}
+
+void paging_use_page_directory(struct PageDirectory *page_dir_virtual_addr) {
+    uint32_t physical_addr_page_dir = (uint32_t) page_dir_virtual_addr;
+    // Additional layer of check & mistake safety net
+    if ((uint32_t) page_dir_virtual_addr > KERNEL_VIRTUAL_ADDRESS_BASE)
+        physical_addr_page_dir -= KERNEL_VIRTUAL_ADDRESS_BASE;
+    __asm__  volatile("mov %0, %%cr3" : /* <Empty> */ : "r"(physical_addr_page_dir): "memory");
 }
