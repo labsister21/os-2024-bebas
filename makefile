@@ -44,6 +44,9 @@ $(OUTPUT_FOLDER)/portio.o: $(SOURCE_FOLDER)/portio.c
 $(OUTPUT_FOLDER)/intsetup.o: $(SOURCE_FOLDER)/intsetup.s
 	$(ASM) $(AFLAGS) $< -o $@
 
+$(OUTPUT_FOLDER)/context_switch.o: $(SOURCE_FOLDER)/context_switch.s
+	$(ASM) $(AFLAGS) $< -o $@
+
 $(OUTPUT_FOLDER)/keyboard.o: $(SOURCE_FOLDER)/keyboard.c
 	$(CC) $(CFLAGS) $< -o $@
 
@@ -59,8 +62,13 @@ $(OUTPUT_FOLDER)/fat32.o: $(SOURCE_FOLDER)/fat32.c
 $(OUTPUT_FOLDER)/paging.o: $(SOURCE_FOLDER)/paging.c
 	$(CC) $(CFLAGS) $< -o $@
 
+$(OUTPUT_FOLDER)/process.o: $(SOURCE_FOLDER)/process.c
+	$(CC) $(CFLAGS) $< -o $@
+
+$(OUTPUT_FOLDER)/scheduler.o: $(SOURCE_FOLDER)/scheduler.c
+	$(CC) $(CFLAGS) $< -o $@
+
 keyboard: $(OUTPUT_FOLDER)/keyboard.o
-gdt: $(OUTPUT_FOLDER)/gdt.o
 idt: $(OUTPUT_FOLDER)/idt.o
 framebuffer: $(OUTPUT_FOLDER)/framebuffer.o
 interrupt: $(OUTPUT_FOLDER)/interrupt.o
@@ -70,6 +78,10 @@ disk: $(OUTPUT_FOLDER)/disk.o
 fat32: $(OUTPUT_FOLDER)/fat32.o
 paging: $(OUTPUT_FOLDER)/paging.o
 portio: $(OUTPUT_FOLDER)/portio.o
+process: $(OUTPUT_FOLDER)/process.o
+gdt: $(OUTPUT_FOLDER)/gdt.o
+scheduler: $(OUTPUT_FOLDER)/scheduler.o
+context_switch: $(OUTPUT_FOLDER)/context_switch.o
 
 DISK_NAME = storage
 DISK_SIZE = 4M
@@ -80,7 +92,7 @@ disk:
 $(OUTPUT_FOLDER)/$(DISK_NAME).bin:
 	@qemu-img create -f raw $@ $(DISK_SIZE)
 
-kernel: gdt idt string portio framebuffer interrupt intsetup keyboard fat32 paging
+kernel: gdt idt string portio framebuffer interrupt intsetup keyboard fat32 paging context_switch process scheduler
 	$(ASM) $(AFLAGS) src/kernel-entrypoint.s -o bin/kernel-entrypoint.o
 	$(CC) $(CFLAGS) $(SOURCE_FOLDER)/kernel.c -o $(OUTPUT_FOLDER)/kernel.o
 	$(LIN) $(LFLAGS) bin/*.o -o $(OUTPUT_FOLDER)/kernel

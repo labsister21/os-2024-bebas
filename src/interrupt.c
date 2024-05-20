@@ -44,6 +44,19 @@ void pic_remap(void) {
 // Main interrupt handler
 void main_interrupt_handler(struct InterruptFrame frame) {
     switch (frame.int_number) {
+        case PIC1_OFFSET + IRQ_TIMER:
+            struct Context ctx = {
+                .eip = frame.int_stack.eip, 
+                .eflags = frame.int_stack.eflags,
+                .cpu = frame.cpu,
+            };
+
+            pic_ack(IRQ_TIMER);
+            
+            scheduler_save_context_to_current_running_pcb(ctx);            
+
+            scheduler_switch_to_next_process();
+            break;
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
             break;

@@ -17,6 +17,8 @@
         "limits": "c",
         "stdint.h": "c",
         "string.h": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "process.h": "c",
+        "scheduler.h": "c"
     },
 }
