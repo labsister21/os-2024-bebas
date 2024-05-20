@@ -9,7 +9,31 @@
 #include "portio.h"
 
 /* -- PIC constants -- */
-
+// Syscall numbers
+#define SYSCALL_READ                    0
+#define SYSCALL_READ_DIRECTORY          1
+#define SYSCALL_WRITE                   2
+#define SYSCALL_DELETE                  3
+#define SYSCALL_GETCHAR                 4
+#define SYSCALL_PUTCHAR                 5
+#define SYSCALL_PUTS                    6
+#define SYSCALL_PUTS_AT                 7
+#define SYSCALL_ACTIVATE_KEYBOARD       8
+#define SYSCALL_DEACTIVATE_KEYBOARD     9
+#define SYSCALL_SET_KEYBOARD_BORDERS    10
+#define SYSCALL_KEYBOARD_PRESS_SHIFT    11
+#define SYSCALL_KEYBOARD_PRESS_CTRL     12
+#define SYSCALL_CLEAR_SCREEN            13
+#define SYSCALL_SET_CURSOR              14
+#define SYSCALL_GET_CURSOR_ROW          15
+#define SYSCALL_GET_CURSOR_COL          16
+#define SYSCALL_READ_CLUSTER            17
+#define SYSCALL_TERMINATE_PROCESS       18
+#define SYSCALL_CREATE_PROCESS          19
+#define SYSCALL_GET_MAX_PROCESS_COUNT   20
+#define SYSCALL_GET_PROCESS_INFO        21
+#define SYSCALL_GET_CLOCK_TIME          22
+#define SYSCALL_FIND_FILE               25
 // PIC interrupt offset
 #define PIC1_OFFSET          0x20
 #define PIC2_OFFSET          0x28
@@ -140,6 +164,49 @@ struct TSSEntry {
     // Unused variables
     uint32_t unused_register[23];
 } __attribute__((packed));
+// Helper structs
+struct SyscallPutsArgs {
+    char* buf;
+    uint32_t count;
+    uint32_t fg_color;
+    uint32_t bg_color;
+};
+
+struct SyscallPutsAtArgs {
+    char* buf;
+    uint32_t count;
+    uint32_t fg_color;
+    uint32_t bg_color;
+    uint8_t row;
+    uint8_t col;
+};
+
+struct SyscallKeyboardBordersArgs {
+    uint8_t up;
+    uint8_t down;
+    uint8_t left;
+    uint8_t right;
+};
+
+struct SyscallProcessInfoArgs {
+    // Metadata
+    uint32_t pid;
+    char name[32];
+    char state[8];
+
+    // Flag to check if pid-th slot has a process
+    bool process_exists;
+
+    // Memory
+    uint32_t page_frame_used_count;
+};
+
+struct SyscallClockTimeArgs {
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+};
+
 
 // Set kernel stack in TSS
 void set_tss_kernel_current_stack(void);
@@ -158,5 +225,7 @@ void syscall(struct InterruptFrame frame);
 #define PIT_COMMAND_VALUE (PIT_COMMAND_VALUE_BINARY_MODE | PIT_COMMAND_VALUE_OPR_SQUARE_WAVE | PIT_COMMAND_VALUE_ACC_LOHIBYTE | PIT_COMMAND_VALUE_CHANNEL)
 
 #define PIT_CHANNEL_0_DATA_PIO 0x40
+
+void get_process_info(struct SyscallProcessInfoArgs* args);
 
 #endif

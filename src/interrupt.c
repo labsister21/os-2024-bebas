@@ -132,6 +132,62 @@ void syscall(struct InterruptFrame frame) {
         case 10: //cls
             framebuffer_clear();
             break;
+        case 11: // Create new user process
+            break;
+        case 12: // Terminate process by PID
+            break;
+        case 13: // Get process info
+            break;
+        case SYSCALL_GET_MAX_PROCESS_COUNT:
+            *((uint32_t*) frame.cpu.general.ebx) = PROCESS_COUNT_MAX;
+            break;
+        case SYSCALL_GET_PROCESS_INFO:
+            get_process_info((struct SyscallProcessInfoArgs*) frame.cpu.general.ebx);
+            break;
+        case SYSCALL_TERMINATE_PROCESS:
+            process_destroy(process_manager_state.current_running_pid);
+            break;
+    }
+}
+void get_process_info(struct SyscallProcessInfoArgs* args) {
+    // Get process index
+    uint32_t pid = args->pid;
+
+    // Set process_exists flag
+    args->process_exists = process_manager_state.process_slot_occupied[pid];
+
+    // If process exists, get the process info
+    if (args->process_exists) {
+        // Get process metadata
+        struct ProcessControlBlock* pcb = &(_process_list[pid]);
         
+        // Process name
+        for (uint8_t i = 0; i < PROCESS_NAME_LENGTH_MAX; i++) {
+            args->name[i] = pcb->metadata.name[i];
+        }
+        
+        // Process state
+        switch (pcb->metadata.state) {
+            case PROCESS_STATE_RUNNING:
+                for (uint8_t i = 0; i < 7; i++) {
+                    args->state[i] = "RUNNING"[i];
+                }
+                break;
+            case PROCESS_STATE_READY:
+                for (uint8_t i = 0; i < 5; i++) {
+                    args->state[i] = "READY"[i];
+                }
+                break;
+            case PROCESS_STATE_BLOCKED:
+                for (uint8_t i = 0; i < 7; i++) {
+                    args->state[i] = "BLOCKED"[i];
+                }
+                break;
+            default:
+                break;
+        } 
+
+        // Get process memory info
+        args->page_frame_used_count = pcb->memory.page_frame_used_count;
     }
 }

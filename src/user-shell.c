@@ -9,6 +9,110 @@
 #define SYSCALL_DISABLE_TYPING 8
 #define COLOR_WHITE_ON_BLACK 0xF
 
+char* itoa[] = {
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+    "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+    "30", "31", "32", "33", "34", "35", "36", "37", "38", "39",
+    "40", "41", "42", "43", "44", "45", "46", "47", "48", "49"
+};
+
+
+// Syscall numbers
+#define SYSCALL_READ                    0
+#define SYSCALL_READ_DIRECTORY          1
+#define SYSCALL_WRITE                   2
+#define SYSCALL_DELETE                  3
+#define SYSCALL_GETCHAR                 4
+#define SYSCALL_PUTCHAR                 5
+#define SYSCALL_PUTS                    6
+#define SYSCALL_PUTS_AT                 7
+#define SYSCALL_ACTIVATE_KEYBOARD       8
+#define SYSCALL_DEACTIVATE_KEYBOARD     9
+#define SYSCALL_SET_KEYBOARD_BORDERS    10
+#define SYSCALL_KEYBOARD_PRESS_SHIFT    11
+#define SYSCALL_KEYBOARD_PRESS_CTRL     12
+#define SYSCALL_CLEAR_SCREEN            13
+#define SYSCALL_SET_CURSOR              14
+#define SYSCALL_GET_CURSOR_ROW          15
+#define SYSCALL_GET_CURSOR_COL          16
+#define SYSCALL_READ_CLUSTER            17
+#define SYSCALL_TERMINATE_PROCESS       18
+#define SYSCALL_CREATE_PROCESS          19
+#define SYSCALL_GET_MAX_PROCESS_COUNT   20
+#define SYSCALL_GET_PROCESS_INFO        21
+#define SYSCALL_GET_CLOCK_TIME          22
+#define SYSCALL_FIND_FILE               25
+
+// BIOS colors
+#define BIOS_BLACK                     0x0
+#define BIOS_BLUE                      0x1
+#define BIOS_GREEN                     0x2
+#define BIOS_CYAN                      0x3
+#define BIOS_RED                       0x4
+#define BIOS_MAGENTA                   0x5
+#define BIOS_BROWN                     0x6
+#define BIOS_LIGHT_GRAY                0x7
+#define BIOS_DARK_GRAY                 0x8
+#define BIOS_LIGHT_BLUE                0x9
+#define BIOS_LIGHT_GREEN               0xA
+#define BIOS_LIGHT_CYAN                0xB
+#define BIOS_LIGHT_RED                 0xC
+#define BIOS_LIGHT_MAGENTA             0xD
+#define BIOS_YELLOW                    0xE
+#define BIOS_WHITE                     0xF
+
+// Extended scancode handling
+#define EXT_BUFFER_NONE               0
+#define EXT_BUFFER_UP                 1
+#define EXT_BUFFER_DOWN               2
+#define EXT_BUFFER_LEFT               3
+#define EXT_BUFFER_RIGHT              4
+
+// Helper structs
+struct SyscallPutsArgs {
+    char* buf;
+    uint32_t count;
+    uint32_t fg_color;
+    uint32_t bg_color;
+};
+
+struct SyscallPutsAtArgs {
+    char* buf;
+    uint32_t count;
+    uint32_t fg_color;
+    uint32_t bg_color;
+    uint8_t row;
+    uint8_t col;
+};
+
+struct SyscallKeyboardBordersArgs {
+    uint8_t up;
+    uint8_t down;
+    uint8_t left;
+    uint8_t right;
+};
+
+struct SyscallProcessInfoArgs {
+    // Metadata
+    uint32_t pid;
+    char name[32];
+    char state[8];
+
+    // Flag to check if pid-th slot has a process
+    bool process_exists;
+
+    // Memory
+    uint32_t page_frame_used_count;
+};
+
+struct SyscallClockTimeArgs {
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+};
+
+
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 {
     __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
@@ -499,6 +603,30 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 
         syscall(8, 0, 0, 0);
     }
+    else if (strcmp(command, "exec") == 0) // mkdir
+    {
+        struct FAT32DriverRequest request = {
+            .buf                   = (uint8_t*) 0,
+            .ext                   = "\0\0\0",
+            .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+            .buffer_size           = 0x100000,
+        };
+        strcpy(request.name, argument); // Copy the string
+
+        syscall(11, (uint32_t) &request, 0, 0);
+    }
+    else if (strcmp(command, "kill") == 0) // mkdir
+    {
+        struct FAT32DriverRequest request = {
+            .buf                   = (uint8_t*) 0,
+            .ext                   = "\0\0\0",
+            .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+            .buffer_size           = 0x100000,
+        };
+        strcpy(request.name, argument); // Copy the string
+
+        syscall(11, (uint32_t) &request, 0, 0);
+    }
     // else if (memcmp((char * ) buffer, "cp", 2) == 0) ////cp
     // {
     //     struct FAT32DriverRequest request = {
@@ -729,6 +857,109 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
         {
             puts("Not found", 0x4);
         }
+    }
+    else if (strcmp(command, "ps") == 0) ////findmake
+    {
+        // Get max process count
+    uint32_t max_process_count;
+    syscall(SYSCALL_GET_MAX_PROCESS_COUNT, (uint32_t) &max_process_count, 0, 0);
+
+    // Newline struct
+    struct SyscallPutsArgs newline = {
+        .buf = "\n",
+        .count = strlen(newline.buf),
+        .fg_color = 0x0,
+        .bg_color = 0x0
+    };
+
+    // Whitespace struct
+    struct SyscallPutsArgs whitespace = {
+        .buf = " ",
+        .count = strlen(whitespace.buf),
+        .fg_color = 0x0,
+        .bg_color = 0x0
+    };
+    uint32_t COL_NAME = 11;
+    uint32_t COL_STATE = 23;
+    uint32_t COL_FRAME_COUNT = 36;
+
+    // Print header
+    struct SyscallPutsArgs header = {
+        .buf = "PID        Name        State        Frame Count",
+        .count = strlen(header.buf),
+        .fg_color = BIOS_YELLOW,
+        .bg_color = 0x0
+    };
+    syscall(SYSCALL_PUTS, (uint32_t) &header, 0, 0);
+
+    // Print process info
+    uint32_t col;
+    for (uint32_t i = 0; i < max_process_count; i++) {
+        // Create process_info struct
+        struct SyscallProcessInfoArgs process_info = {
+            .pid = i,
+        };
+
+        // Read i-th process info
+        syscall(SYSCALL_GET_PROCESS_INFO, (uint32_t) &process_info, 0, 0);
+
+        // Print process info if exists at i-th slot
+        if (process_info.process_exists) {
+            // Print newline
+            syscall(SYSCALL_PUTS, (uint32_t) &newline, 0, 0);
+
+            // PID
+            struct SyscallPutsArgs pid = {
+                .buf = itoa[process_info.pid],
+                .count = strlen(pid.buf),
+                .fg_color = BIOS_WHITE,
+                .bg_color = 0x0
+            };
+            syscall(SYSCALL_PUTS, (uint32_t) &pid, 0, 0);
+
+            do {
+                syscall(SYSCALL_PUTS, (uint32_t) &whitespace, 0, 0);
+                syscall(SYSCALL_GET_CURSOR_COL, (uint32_t) &col, 0, 0);
+            } while (col < COL_NAME);
+
+            // Process name
+            struct SyscallPutsArgs name = {
+                .buf = process_info.name,
+                .count = strlen(name.buf),
+                .fg_color = BIOS_LIGHT_GREEN,
+                .bg_color = 0x0
+            };
+            syscall(SYSCALL_PUTS, (uint32_t) &name, 0, 0);
+
+            do {
+                syscall(SYSCALL_PUTS, (uint32_t) &whitespace, 0, 0);
+                syscall(SYSCALL_GET_CURSOR_COL, (uint32_t) &col, 0, 0);
+            } while (col < COL_STATE);
+
+            // Process state
+            struct SyscallPutsArgs state = {
+                .buf = process_info.state,
+                .count = strlen(state.buf),
+                .fg_color = BIOS_LIGHT_CYAN,
+                .bg_color = 0x0
+            };
+            syscall(SYSCALL_PUTS, (uint32_t) &state, 0, 0);
+
+            do {
+                syscall(SYSCALL_PUTS, (uint32_t) &whitespace, 0, 0);
+                syscall(SYSCALL_GET_CURSOR_COL, (uint32_t) &col, 0, 0);
+            } while (col < COL_FRAME_COUNT);
+
+            // Process frame count
+            struct SyscallPutsArgs frame_count = {
+                .buf = itoa[process_info.page_frame_used_count],
+                .count = strlen(frame_count.buf),
+                .fg_color = BIOS_LIGHT_BLUE,
+                .bg_color = 0x0
+            };
+            syscall(SYSCALL_PUTS, (uint32_t) &frame_count, 0, 0);
+        }
+    }
     }
     else
     {

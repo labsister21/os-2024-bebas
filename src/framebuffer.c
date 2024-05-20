@@ -7,20 +7,14 @@
 
 void framebuffer_set_cursor(uint8_t r, uint8_t c) {
     uint16_t pos = r * VGA_WIDTH + c;
- 
+
     out(0x3D4, 0x0F);
     out(0x3D5, (uint8_t) (pos & 0xFF));
     out(0x3D4, 0x0E);
     out(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
-    // TODO : Implement
 }
 
 void framebuffer_write(uint8_t row, uint8_t col, char c, uint8_t fg, uint8_t bg) {
-    //uint16_t attrib = (bg << 4) | (fg & 0x0F);
-    //volatile uint16_t * where;
-    //where = (volatile uint16_t *)0xB8000 + (col * 80 + row) ;
-    //*where = c | (attrib << 8);
-    
     FRAMEBUFFER_MEMORY_OFFSET[(row * VGA_WIDTH + col)*2] = c;
     FRAMEBUFFER_MEMORY_OFFSET[(row * VGA_WIDTH + col)*2+1] = fg | bg;
 }
@@ -48,9 +42,6 @@ uint16_t get_cursor_pos(void) {
 }
 
 void puts(char *str, uint32_t len, uint32_t color) {
-        //uint16_t cursor_pos = get_cursor_pos();
-        // uint16_t row_now = get_cursor_pos() / VGA_WIDTH;
-        // uint16_t col = get_cursor_pos() % VGA_WIDTH;
         for (uint32_t i = 0; i < len; i++)
         {
             putchar(str+i,color);

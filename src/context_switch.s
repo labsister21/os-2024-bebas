@@ -8,7 +8,7 @@ process_context_switch:
   ; ...
   mov  eax, 0x20 | 0x3
   push eax ; Stack segment selector (GDT_USER_DATA_SELECTOR), user privilege
-  mov  eax, [ecx + 12]
+  mov  eax, [ecx + 12] 
   push eax ; User space stack pointer (esp), move it into last 4 MiB
   mov eax, [ecx + 52]
   push eax    ; eflags register state, when jump inside user program
