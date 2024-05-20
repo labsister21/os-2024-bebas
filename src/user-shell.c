@@ -573,7 +573,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
         struct ClusterBuffer clusbuff = {0};
         struct FAT32DriverRequest request = {
             .buf = &clusbuff,
-            .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+            .parent_cluster_number = *parent_cluster,
             .buffer_size = 0,
         };
         request.buffer_size = 5*CLUSTER_SIZE;
@@ -595,12 +595,16 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 
         struct FAT32DriverRequest request2 = {
             .buf                   = &clusbuff,
-            .parent_cluster_number = ROOT_CLUSTER_NUMBER,
+            .parent_cluster_number = *parent_cluster,
             .buffer_size           = 0,
         };
 
         char* itr2 = (char * ) buffer + 8 +nameLen;
-        memcpy(request2.name, itr2, 8);
+
+        if(request.ext[0] == 0x0){
+            itr2 = (char * ) buffer + 4 +nameLen;
+        }
+
         syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
 
          /* Read the Destination Folder to paste */
@@ -611,10 +615,6 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             return;
         }
         else if (retcode == 2){
-            puts("Not enough buffer", 0x4);
-            return;
-        }
-        else if (retcode == 3){
             puts("File Not found", 0x4);
             return;
         }
@@ -622,83 +622,33 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             puts("Unknown error", 0x4);
             return;
         }
+        
+        memcpy(request2.name, itr2, 8);
+
+        int32_t retcode2;
+        struct FAT32DirectoryTable table = {};
+        request2.buf = &table;
+        syscall(1, (uint32_t) &request2, (uint32_t) &retcode, 0);
+
+        for(int i = 0; i < 64; i++){
+            if(memcmp(table.table[i].name, request2.name, strlen((char *) request2.name)) == 0){
+                request.parent_cluster_number = (table.table[i].cluster_high << 16) | table.table[i].cluster_low;
+                syscall(2, (uint32_t) &request, (uint32_t) &retcode2, 0);
+                break;
+            }
+        }
+
+        if (retcode2 == 0)
+            puts("Write success", 0x2);
+        else if (retcode2 == 1)
+            puts("File/Folder already exist", 0x4);
+        else if (retcode2 == 2)
+            puts("Invalid parent cluster", 0x4);
+        else
+            puts("Target folder not found", 0x4);
 
     }
-    // else if (memcmp((char * ) buffer, "cp", 2) == 0) ////cp
-    // {
-    //     struct FAT32DriverRequest request = {
-    //         .buf                   = &dtable,
-    //         .parent_cluster_number = ROOT_CLUSTER_NUMBER,
-    //         .buffer_size           = 0,
-    //     };
-    //     request.buffer_size = 5*CLUSTER_SIZE;
-    //     int nameLen = 0;
-    //     char* itr = (char * ) buffer + 3;
-    //     for(int i = 0; i < strlen(itr) ; i++){
-    //         if(itr[i] == '.'){
-    //             request.ext[0] = itr[i+1];
-    //             request.ext[1] = itr[i+2];
-    //             request.ext[2] = itr[i+3];
-    //             break;
-    //         }else{
-    //             nameLen++;
-    //         }
-    //     }
-
-    //     memcpy(request.name, (void *) (buffer + 3), nameLen);
-    //     int32_t retcode;
-
-    //     struct FAT32DriverRequest request2 = {
-    //         .buf                   = &dtable,
-    //         .parent_cluster_number = ROOT_CLUSTER_NUMBER,
-    //         .buffer_size           = 0,
-    //     };
-
-    //     memcpy(request2.name, listName[id], 8);
-    //     syscall(0, (uint32_t) &request, (uint32_t) &retcode, 0);
-
-    //     /* Read the Destination Folder to paste */
-    //     if (retcode == 0)
-    //         puts("Read success", 0x2);
-    //     else if (retcode == 1){
-    //         puts("Not a file", 0x4);
-    //         return;
-    //     }
-    //     else if (retcode == 2){
-    //         puts("Not enough buffer", 0x4);
-    //         return;
-    //     }
-    //     else if (retcode == 3){
-    //         puts("File Not found", 0x4);
-    //         return;
-    //     }
-    //     else{
-    //         puts("Unknown error", 0x4);
-    //         return;
-    //     }
-
-    //     int32_t retcode2;
-    //     struct FAT32DirectoryTable table = {};
-    //     request2.buf = &table;
-    //     syscall(1, (uint32_t) &request2, (uint32_t) &retcode, 0);
-
-    //     for(int i = 0; i < 64; i++){
-    //         if(memcmp(table.table[i].name, (void * )(buffer + 3 + nameLen + 5), strlen((char *) buffer + 3 + nameLen + 5)) == 0){
-    //             request.parent_cluster_number = (table.table[i].cluster_high << 16) | table.table[i].cluster_low;
-    //             syscall(2, (uint32_t) &request, (uint32_t) &retcode2, 0);
-    //             break;
-    //         }
-    //     }
-
-    //     if (retcode2 == 0)
-    //         puts("Write success", 0x2);
-    //     else if (retcode2 == 1)
-    //         puts("File/Folder already exist", 0x4);
-    //     else if (retcode2 == 2)
-    //         puts("Invalid parent cluster", 0x4);
-    //     else
-    //         puts("Target folder not found", 0x4);
-    // }
+    
     else if (strcmp(command, "rm") == 0) ////rm
     {
         if (argument == NULL || strlen(argument) == strspn(argument, " \t\n\r"))
