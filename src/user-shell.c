@@ -148,7 +148,7 @@ void print_dir_tree(uint32_t cluster_number, char *text_pointer) {
         // Get parent cluster number
         current_cluster = buff.table[1].cluster_low | (buff.table[1].cluster_high << 16);
 
-    } while (current_cluster != 0); // Stop when we reach the root
+    } while (current_cluster != 0x2); // Stop when we reach the root
 
     // Reverse the directory path stored in temp
     char *start = temp;
@@ -827,48 +827,20 @@ void handleInput(char *inputBuffer, int *inputLength)
     }
 }
 
-void tulisFile(uint16_t *parent_clust){
-    struct ClusterBuffer clusbuff = {0};
-    struct FAT32DriverRequest request = {
-            .buf                   = &clusbuff,
-            .parent_cluster_number = *parent_clust,
-            .buffer_size           = 0,
-        };
-    request.buffer_size = 5*CLUSTER_SIZE;
-    request.ext[0] = 't';
-    request.ext[1] = 'x';
-    request.ext[2] = 't';
-    memcpy(request.name, "tes", 3);
-    uint32_t retcode;
-    struct ClusterBuffer cbuf[5] = {};
-    char* isi = "aaaa";
-    for (uint32_t i = 0; i < 5; i++)
-        for (uint32_t j = 0; j < CLUSTER_SIZE; j++)
-            cbuf[i].buf[j] = isi[j];
-    
-    request.buf = cbuf;
-    syscall(2, (uint32_t) &request, (uint32_t) &retcode, 0);
-    if(retcode == 0){
-        puts("Write success", 0x2);
-    }else{
-        puts("Write unsuccessful", 0x4);
-    }
-}
-
 int shell(void)
 {
     char inputBuffer[SHELL_MAX_LENGTH];
     int inputLength = 0;
     char current_dir[SHELL_MAX_LENGTH / 2];
     uint16_t current_cluster_pos = 2;
-    tulisFile(&current_cluster_pos);
 
     while (true)
     {
         clearBuffer(current_dir, SHELL_MAX_LENGTH / 2);
-        // print_dir_tree(current_cluster_pos, current_dir);
-        puts(current_dir, COLOR_WHITE_ON_BLACK);
+        print_dir_tree(current_cluster_pos, current_dir);
         puts("BEBAS@OS-IF2230>", 0x05);
+        puts(current_dir, COLOR_WHITE_ON_BLACK);
+        puts("$", 0x2);
 
         clearBuffer(inputBuffer, SHELL_MAX_LENGTH);
         inputLength = 0;
