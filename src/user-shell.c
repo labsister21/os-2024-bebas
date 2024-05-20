@@ -116,6 +116,10 @@ struct SyscallClockTimeArgs {
 char* listName[100];
 uint32_t listCluster[100];
 uint32_t id = 0;
+
+uint32_t idx = 0;
+uint32_t clusters[100];
+
 void syscall(uint32_t eax, uint32_t ebx, uint32_t ecx, uint32_t edx)
 {
     __asm__ volatile("mov %0, %%ebx" : /* <Empty> */ : "r"(ebx));
@@ -443,8 +447,19 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
 {
     char *command = strtok(buffer, " ");
     char *argument = strtok(NULL, " ");
+    char* com = (char * ) buffer + 3;
     if (strcmp(command, "cd") == 0)
-    {
+    {   
+        if (memcmp(com, "..", 2)== 0){
+            if(idx == 0){
+                puts("Already in root", 0x4);
+                return;
+            }
+            idx--;
+            puts("Successfully changed directory.", 0xF);
+            *parent_cluster = clusters[idx];
+            return;
+        }
         if (argument == NULL || strlen(argument) == strspn(argument, " \t\n\r"))
         {
             return;
@@ -494,7 +509,9 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             puts("Directory not found!", 0x4);
         }
         else if (retcode == 0)
-        {
+        {   
+            idx++;
+            clusters[idx] = current_cluster;
             *parent_cluster = current_cluster;
             puts("Successfully changed directory.", 0xF);
         }
@@ -829,15 +846,21 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             }
         }
 
-        if (retcode2 == 1)
+        if (retcode2 == 1){
             puts("File/Folder already exist", 0x4);
             return;
-        else if (retcode2 == 2)
+        }
+            
+        else if (retcode2 == 2){
             puts("Invalid parent cluster", 0x4);
             return;
-        else
+        }
+            
+        else{
             puts("Target folder not found", 0x4);
             return;
+        }
+            
         
         struct FAT32DriverRequest request3 = {
             .buf = &clusbuff,
@@ -1044,6 +1067,7 @@ int shell(void)
     int inputLength = 0;
     char current_dir[SHELL_MAX_LENGTH / 2];
     uint16_t current_cluster_pos = 2;
+    clusters[0] = (uint32_t) ROOT_CLUSTER_NUMBER;
 
     while (true)
     {
