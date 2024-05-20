@@ -31,7 +31,13 @@ git clone https://github.com/labsister21/os-2024-bebas.git
 ```
 2. Jalankan
 ```
-make
+make disk
+```
+```
+make insert-shell
+```
+```
+make run
 ```
 ## Struktur File
 ``` bash
