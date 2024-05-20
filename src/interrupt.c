@@ -194,6 +194,9 @@ void syscall(struct InterruptFrame frame) {
         case SYSCALL_TERMINATE_PROCESS:
             process_destroy(process_manager_state.current_running_pid);
             break;
+        case SYSCALL_GET_CURSOR_COL:
+            *((uint8_t*) frame.cpu.general.ebx) = keyboard_status.col;
+            break;
     }
 }
 void get_process_info(struct SyscallProcessInfoArgs* args) {

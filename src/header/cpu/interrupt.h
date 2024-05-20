@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include "../process/process.h"
 #include "../process/scheduler.h"
+#include "../driver/keyboard.h"
 #include "portio.h"
 
 /* -- PIC constants -- */

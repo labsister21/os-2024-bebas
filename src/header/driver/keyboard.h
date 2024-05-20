@@ -34,9 +34,10 @@ struct KeyboardDriverState
     bool read_extended_mode;
     bool keyboard_input_on;
     char keyboard_buffer;
+    uint8_t col;
 } __attribute((packed));
 
-
+extern struct KeyboardDriverState keyboard_status;
 /* -- Driver Interfaces -- */
 
 // Activate keyboard ISR / start listen keyboard & save to buffer

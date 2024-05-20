@@ -3,7 +3,7 @@
 #include "header/cpu/portio.h"
 #include "header/stdlib/string.h"
 
-static struct KeyboardDriverState keyboard_status;
+struct KeyboardDriverState keyboard_status;
 
 const char keyboard_scancode_1_to_ascii_map[256] = {
     0,
@@ -265,10 +265,6 @@ const char keyboard_scancode_1_to_ascii_map[256] = {
     0,
 };
 
-// struct KeyboardDriverState {
-//     bool keyboard_input_on;
-//     char keyboard_buffer;
-// } KeyboardDriverState;
 
 void keyboard_isr(void)
 {
@@ -276,9 +272,18 @@ void keyboard_isr(void)
 
   if (keyboard_status.keyboard_input_on)
   {
-      char ascii_char = keyboard_scancode_1_to_ascii_map[scancode];
+    char ascii_char = keyboard_scancode_1_to_ascii_map[scancode];
 
-      keyboard_status.keyboard_buffer = ascii_char;
+    keyboard_status.keyboard_buffer = ascii_char;
+
+    // Update col based on the ASCII character
+    if (ascii_char == '\n') {
+      // If the character is a newline, reset col to 0
+      keyboard_status.col = 0;
+    } else {
+      // Otherwise, increment col
+      keyboard_status.col++;
+    }
   }
 
   pic_ack(IRQ_KEYBOARD);

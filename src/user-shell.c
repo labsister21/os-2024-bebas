@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "header/stdlib/string.h"
 #include "header/filesystem/fat32.h"
+#include "header/process/scheduler.h"
 
 #define SHELL_MAX_LENGTH 256
 #define SYSCALL_ENABLE_TYPING 7
@@ -884,7 +885,7 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
     }
     else if (strcmp(command, "ps") == 0) ////findmake
     {
-        // Get max process count
+    // Get max process count
     uint32_t max_process_count;
     syscall(SYSCALL_GET_MAX_PROCESS_COUNT, (uint32_t) &max_process_count, 0, 0);
 
@@ -984,6 +985,9 @@ void parseCommand(char buffer[SHELL_MAX_LENGTH], uint16_t *parent_cluster)
             syscall(SYSCALL_PUTS, (uint32_t) &frame_count, 0, 0);
         }
     }
+}
+    else if (strcmp(command, "exec")) {
+        
     }
     else
     {
@@ -1056,11 +1060,13 @@ int shell(void)
         syscall(SYSCALL_DISABLE_TYPING, 0, 0, 0);
 
         parseCommand(inputBuffer, &current_cluster_pos);
-        puts("\n", 0x00);
+        puts("\n", 0x0);
     }
 
     return 0;
 }
+
+
 
 int main(void)
 {
