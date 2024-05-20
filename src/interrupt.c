@@ -44,7 +44,7 @@ void pic_remap(void) {
 // Main interrupt handler
 void main_interrupt_handler(struct InterruptFrame frame) {
     switch (frame.int_number) {
-        case PIC1_OFFSET + IRQ_TIMER:
+        case PIC1_OFFSET + IRQ_TIMER: {
             struct Context ctx = {
                 .eip = frame.int_stack.eip, 
                 .eflags = frame.int_stack.eflags,
@@ -57,6 +57,7 @@ void main_interrupt_handler(struct InterruptFrame frame) {
 
             scheduler_switch_to_next_process();
             break;
+        }
         case PIC1_OFFSET + IRQ_KEYBOARD:
             keyboard_isr();
             break;
@@ -132,6 +133,52 @@ void syscall(struct InterruptFrame frame) {
         case 10: //cls
             framebuffer_clear();
             break;
-        
+        case 11:{
+            // Set parent cluster buffer for move command
+            struct FAT32DirectoryTable src_table = *(struct FAT32DirectoryTable*) frame.cpu.general.ebx;
+            struct FAT32DirectoryTable dest_table = *(struct FAT32DirectoryTable*) frame.cpu.general.ecx;
+            uint32_t src_idx = (uint32_t) frame.cpu.general.edx;
+
+
+            for (uint32_t i = 1; i < CLUSTER_SIZE/(sizeof(struct FAT32DirectoryEntry)); i++) {
+                if (dest_table.table[i].user_attribute != UATTR_NOT_EMPTY) {
+                    memcpy(dest_table.table[i].name, src_table.table[src_idx].name, 8);
+                    memcpy(dest_table.table[i].ext, src_table.table[src_idx].ext, 8);
+                    dest_table.table[i].attribute = src_table.table[src_idx].attribute;
+                    dest_table.table[i].user_attribute = src_table.table[src_idx].user_attribute;
+                    dest_table.table[i].undelete = src_table.table[src_idx].undelete;
+                    dest_table.table[i].create_time = src_table.table[src_idx].create_time;
+                    dest_table.table[i].create_date = src_table.table[src_idx].create_date;
+                    dest_table.table[i].access_date = src_table.table[src_idx].access_date;
+                    dest_table.table[i].modified_time = src_table.table[src_idx].modified_time;
+                    dest_table.table[i].modified_date = src_table.table[src_idx].modified_date;
+                    dest_table.table[i].filesize = src_table.table[src_idx].filesize;
+                    dest_table.table[i].cluster_high = src_table.table[src_idx].cluster_high;
+                    dest_table.table[i].cluster_low = src_table.table[src_idx].cluster_low;
+
+                    memcpy(src_table.table[src_idx].name, "\0\0\0\0\0\0\0\0", 8);
+                    memcpy(src_table.table[src_idx].ext, "\0\0\0", 3);
+                    src_table.table[src_idx].attribute = 0;
+                    src_table.table[src_idx].user_attribute = 0;
+                    src_table.table[src_idx].undelete = 0;
+                    src_table.table[src_idx].create_time = 0;
+                    src_table.table[src_idx].create_date = 0;
+                    src_table.table[src_idx].access_date = 0;
+                    src_table.table[src_idx].modified_time = 0;
+                    src_table.table[src_idx].modified_date = 0;
+                    src_table.table[src_idx].filesize = 0;
+                    src_table.table[src_idx].cluster_high = 0;
+                    src_table.table[src_idx].cluster_low = 0;
+                    break;
+                }
+            }
+            
+            uint32_t src_cluster_number = src_table.table[0].cluster_high << 16 | src_table.table[0].cluster_low;
+            uint32_t dest_cluster_number = dest_table.table[0].cluster_high << 16 | dest_table.table[0].cluster_low;
+
+            write_clusters(&(src_table), src_cluster_number, 1);
+            write_clusters(&(dest_table), dest_cluster_number, 1);
+            }
+            break;
     }
 }
